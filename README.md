@@ -86,7 +86,12 @@ MODAM은 사용자가 두피 사진을 업로드하면 AI 분석을 통해 탈�
 <br><br><br>
 <img width="1710" height="1088" alt="image" src="https://github.com/user-attachments/assets/5cbac573-ed7a-407e-a4c4-5610c68768d7" />
 - manyfast를 활용하여 기능명세서를 작성하였습니다. (일부 확대)
+<br><br><br>
+- <img width="4200" height="18772" alt="AI 기반 탈모 자가진단 및 맞춤 관리 플랫폼_2026-02-21" src="https://github.com/user-attachments/assets/4fa16989-5d23-4f46-b91d-729dccd0a8b4" />
+
   <br><br><br>
+
+  
 ## 기술 스택 (예정)
 
 - Frontend: React Native / Flutter
