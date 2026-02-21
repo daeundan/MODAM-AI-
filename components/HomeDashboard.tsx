@@ -1,6 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import Disclaimer from "@/components/Disclaimer";
+import ReviewSection from "@/components/ReviewSection";
 
 export default function HomeDashboard() {
   return (
@@ -40,6 +41,7 @@ export default function HomeDashboard() {
               제품 둘러보기
             </Link>
           </div>
+          <ReviewSection />
         </div>
       </section>
 

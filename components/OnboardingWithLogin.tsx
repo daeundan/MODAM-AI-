@@ -120,6 +120,7 @@ export default function OnboardingWithLogin() {
             >
               MODAM
             </span>
+
             <p className="mt-2 text-center text-xs font-medium uppercase tracking-wider text-[var(--primary-dark)]">
               AI 기반 탈모 자가진단 및 맞춤 관리
             </p>
