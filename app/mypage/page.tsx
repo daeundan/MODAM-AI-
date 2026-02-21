@@ -33,8 +33,10 @@ export default function MypagePage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6 sm:py-12">
-      <h1 className="mb-6 text-2xl font-bold text-[var(--foreground)] sm:text-3xl">마이페이지</h1>
+    <div className="mx-auto max-w-2xl px-4 pt-20 pb-6 sm:pt-26 sm:pb-12">
+      <div className="mb-10 text-center">
+        <h1 className="text-2xl font-bold text-[var(--foreground)] sm:text-3xl">마이페이지</h1>
+      </div>
 
       <section className="mb-8 rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
         <h2 className="mb-3 text-lg font-semibold text-[var(--foreground)]">프로필</h2>

@@ -66,11 +66,13 @@ export default function DiagnosePage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6 sm:py-12">
-      <h1 className="mb-2 text-2xl font-bold text-[var(--foreground)] sm:mb-4 sm:text-3xl">AI 탈모 자가진단</h1>
-      <p className="mb-6 text-sm text-[var(--muted)] sm:mb-8 sm:text-base">
-        정수리와 헤어라인 사진을 올려주시면 AI가 분석해 탈모 진행 단계(정상·주의·위험)를 알려드립니다.
-      </p>
+    <div className="mx-auto max-w-2xl px-4 pt-20 pb-6 sm:pt-26 sm:pb-12">
+      <div className="mb-8 text-center">
+        <h1 className="mb-4 text-2xl font-bold text-[var(--foreground)] sm:text-3xl">AI 탈모 자가진단</h1>
+        <p className="mx-auto text-sm text-[var(--muted)] sm:text-base max-w-md">
+          정수리와 헤어라인 사진을 올려주시면 AI가 분석해 탈모 진행 단계(정상·주의·위험)를 알려드립니다.
+        </p>
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
         <div className="grid gap-4 sm:grid-cols-2 sm:gap-6">
@@ -98,9 +100,6 @@ export default function DiagnosePage() {
           >
             {analyzing ? "AI 분석 중… (약 10초)" : "진단하기"}
           </button>
-          <Link href="/" className="min-h-[44px] flex items-center justify-center text-sm text-[var(--muted)] hover:text-[var(--primary)] transition-colors">
-            홈으로
-          </Link>
         </div>
       </form>
 

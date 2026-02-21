@@ -51,8 +51,10 @@ function ReportContent() {
   const createdAt = new Date(result.createdAt);
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-6 sm:py-12">
-      <h1 className="mb-6 text-2xl font-bold text-[var(--foreground)] sm:mb-8 sm:text-3xl">진단 리포트</h1>
+    <div className="mx-auto max-w-2xl px-4 pt-20 pb-6 sm:pt-26 sm:pb-12">
+      <div className="mb-10 text-center">
+        <h1 className="text-2xl font-bold text-[var(--foreground)] sm:text-3xl">진단 리포트</h1>
+      </div>
 
       <section className="mb-8 rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
         <p className="text-sm text-[var(--muted)]">

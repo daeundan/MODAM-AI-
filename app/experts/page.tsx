@@ -3,11 +3,13 @@ import { MOCK_EXPERTS } from "@/lib/mock-data";
 
 export default function ExpertsPage() {
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6 sm:py-12">
-      <h1 className="mb-6 text-2xl font-bold text-[var(--foreground)] sm:text-3xl">전문가 상담</h1>
-      <p className="mb-8 text-[var(--muted)]">
-        탈모 전문의·상담사와 연결해 신뢰할 수 있는 상담을 받아보세요. 온라인/오프라인 예약이 가능합니다.
-      </p>
+    <div className="mx-auto max-w-4xl px-4 pt-20 pb-6 sm:pt-26 sm:pb-12">
+      <div className="mb-8 text-center">
+        <h1 className="mb-6 text-2xl font-bold text-[var(--foreground)] sm:text-3xl">전문가 상담</h1>
+        <p className="mx-auto max-w-2xl text-[var(--muted)]">
+          탈모 전문의·상담사와 연결해 신뢰할 수 있는 상담을 받아보세요. 온라인/오프라인 예약이 가능합니다.
+        </p>
+      </div>
 
       <div className="space-y-6">
         {MOCK_EXPERTS.map((e) => (

@@ -25,15 +25,17 @@ export default function RecommendationsPage() {
   const products = MOCK_PRODUCTS.slice(0, 4);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6 sm:py-12">
-      <h1 className="mb-6 text-2xl font-bold text-[var(--foreground)] sm:text-3xl">맞춤 추천</h1>
-      <p className="mb-8 text-[var(--muted)]">
-        {stage ? (
-          <>최근 진단 결과 기준: <strong className="text-[var(--foreground)]">{STAGE_LABELS[stage]}</strong></>
-        ) : (
-          "AI 진단을 먼저 진행하면 나에게 맞는 추천을 받을 수 있어요."
-        )}
-      </p>
+    <div className="mx-auto max-w-4xl px-4 pt-20 pb-6 sm:pt-26 sm:pb-12">
+      <div className="mb-8 text-center">
+        <h1 className="text-2xl font-bold text-[var(--foreground)] sm:text-3xl">맞춤 추천</h1>
+        <p className="mx-auto max-w-2xl mt-4 text-[var(--muted)]">
+          {stage ? (
+            <>최근 진단 결과 기준: <strong className="text-[var(--foreground)]">{STAGE_LABELS[stage]}</strong></>
+          ) : (
+            "AI 진단을 먼저 진행하면 나에게 맞는 추천을 받을 수 있어요."
+          )}
+        </p>
+      </div>
 
       {!stage && (
         <Link

@@ -3,6 +3,7 @@
 import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { MOCK_PRODUCTS } from "@/lib/mock-data";
 
 const CATEGORY_OPTIONS: { value: string; label: string }[] = [
@@ -29,11 +30,13 @@ function ProductsContent() {
   }, [search, category]);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6 sm:py-12">
-      <h1 className="mb-6 text-2xl font-bold text-[var(--foreground)] sm:text-3xl">제품 정보</h1>
-      <p className="mb-6 text-[var(--muted)]">
-        탈모 케어 제품을 검색하고 상세 정보를 확인하세요. 제휴 링크로 구매할 수 있습니다.
-      </p>
+    <div className="mx-auto max-w-4xl px-4 pt-20 pb-6 sm:pt-26 sm:pb-12">
+      <div className="mb-8 text-center">
+        <h1 className="text-2xl font-bold text-[var(--foreground)] sm:text-3xl">제품 정보</h1>
+        <p className="mx-auto max-w-2xl mt-4 text-[var(--muted)]">
+          탈모 케어 제품을 검색하고 상세 정보를 확인하세요. 제휴 링크로 구매할 수 있습니다.
+        </p>
+      </div>
 
       <div className="mb-8 flex flex-col gap-4 sm:flex-row">
         <input
@@ -60,9 +63,8 @@ function ProductsContent() {
         {filtered.map((p) => (
           <article
             key={p.id}
-            className={`rounded-xl border bg-[var(--card)] p-6 ${
-              highlightId === p.id ? "border-[var(--primary)] ring-2 ring-[var(--primary)]/20" : "border-[var(--border)]"
-            }`}
+            className={`rounded-xl border bg-[var(--card)] p-6 ${highlightId === p.id ? "border-[var(--primary)] ring-2 ring-[var(--primary)]/20" : "border-[var(--border)]"
+              }`}
           >
             <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
               <div>
