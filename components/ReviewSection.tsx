@@ -81,7 +81,7 @@ export default function ReviewSection() {
                 flexWrap: "wrap",
             }}>
                 <button onClick={openModal} style={btnStyle()}>
-                    ✍️ 한줄평 남기기
+                    단이에게 한줄평 남기기 ✍️
                 </button>
                 <button
                     onClick={() => {
@@ -89,14 +89,14 @@ export default function ReviewSection() {
                     }}
                     style={btnStyle()}
                 >
-                    💬 리뷰 보기 {reviews.length > 0 && !showList ? `(${reviews.length})` : ""}
+                    {showList ? "💬 다른 사람이 쓴 리뷰 닫기" : `💬 다른 사람이 쓴 리뷰 보기 ${reviews.length > 0 ? `(${reviews.length})` : ""}`}
                 </button>
             </div>
 
             {/* 리뷰 목록 */}
             {showList && (
                 <div style={{
-                    margin: "12px 20px",
+                    margin: "12px 50px",
                     borderRadius: "12px",
                     background: "#f9fafb",
                     border: "1px solid #e5e7eb",
@@ -232,7 +232,7 @@ function btnStyle(variant: "default" | "cancel" | "modal-submit" | "modal-cancel
     if (variant === "cancel") {
         return {
             minHeight: "44px",
-            padding: "10px 120px",
+            padding: "10px 20px",
             borderRadius: "12px",
             border: "none",
             background: "#f3f4f6",
@@ -276,7 +276,7 @@ function btnStyle(variant: "default" | "cancel" | "modal-submit" | "modal-cancel
     }
     return {
         minHeight: "44px",
-        padding: "10px 120px",
+        padding: "10px 20px",
         borderRadius: "12px",
         border: "1px solid #ddd",
         background: "#ffffff",
@@ -285,7 +285,6 @@ function btnStyle(variant: "default" | "cancel" | "modal-submit" | "modal-cancel
         fontWeight: 600,
         cursor: "pointer",
         width: "100%",
-
         transition: "opacity 0.15s, transform 0.1s",
     } as React.CSSProperties;
 }
