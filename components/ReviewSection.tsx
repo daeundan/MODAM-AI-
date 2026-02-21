@@ -278,14 +278,14 @@ function btnStyle(variant: "default" | "cancel" | "modal-submit" | "modal-cancel
         minHeight: "44px",
         padding: "10px 120px",
         borderRadius: "12px",
-        border: "none",
+        border: "1px solid #ddd",
         background: "#ffffff",
         color: "#161616",
         fontSize: "14px",
         fontWeight: 600,
         cursor: "pointer",
         width: "100%",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.10), 0 1px 2px rgba(0,0,0,0.06)",
+
         transition: "opacity 0.15s, transform 0.1s",
     } as React.CSSProperties;
 }
