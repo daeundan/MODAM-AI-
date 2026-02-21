@@ -1,5 +1,8 @@
 # 🧠 MODAM (모담)
 
+🔗 **Live Demo**  
+https://modam-chi.vercel.app/
+
 <p align="center">
   <img width="900"
     src="https://github.com/user-attachments/assets/38124a28-21cc-4dfa-9679-468b17174944" />
