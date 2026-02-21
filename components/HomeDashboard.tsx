@@ -12,8 +12,8 @@ export default function HomeDashboard() {
           src="/assets/img/main-banner.png"
           alt="모담 메인 배너"
           width={1200}
-          height={200}
-          className="w-full h-[200px] sm:h-[300px] md:h-[400px] object-cover opacity-70"
+          height={300}
+          className="w-full h-[220px] sm:h-[320px] md:h-[420px] object-cover opacity-70"
           priority
         />
 
@@ -27,7 +27,7 @@ export default function HomeDashboard() {
             나에게 맞는 관리 방법과 제품 추천, 커뮤니티·전문가 연계까지 한곳에서.
           </p>
 
-          <div className="mt-6 flex flex-col gap-3 sm:mt-8 sm:flex-row sm:justify-center sm:gap-4">
+          <div className="mt-16 flex flex-col gap-4 sm:mt-8 sm:flex-row sm:justify-center sm:gap-4">
             <Link
               href="/diagnose"
               className="gradient-primary flex min-h-[44px] items-center justify-center rounded-full px-6 py-2.5 text-sm font-bold text-white shadow-xl transition-all hover:scale-105 active:scale-95 sm:px-8 sm:py-3.5 sm:text-base"
