@@ -1,26 +1,78 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* 메인: #94AC3A (라임 그린) */
+  --primary: #94AC3A;
+  --primary-light: #a8c04d;
+  --primary-dark: #7a9030;
+  --primary-pale: #e8efd4;
+  /* 보조: 유사색 테올 그린 (어울리는 보색 톤) */
+  --secondary: #3A8C7A;
+  --secondary-light: #4da898;
+  --secondary-dark: #2e6f61;
+  --secondary-pale: #d4ede8;
+  /* 배경·카드 */
+  --background: #f6f7f2;
+  --background-alt: #eef0e8;
+  --foreground: #1e2a1a;
+  --muted: #5c6b52;
+  --card: #ffffff;
+  --border: #dce4d4;
+  --border-strong: #94AC3A;
+  /* 온보딩 첫화면 연두 배경 */
+  --onboarding-bg: #e5edda;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
+  --font-sans: "Pretendard", -apple-system, BlinkMacSystemFont, "Malgun Gothic", sans-serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Pretendard", -apple-system, BlinkMacSystemFont, "Malgun Gothic", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
+
+/* 터치 디바이스 최적화 */
+@media (hover: none) and (pointer: coarse) {
+  button, a {
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0.08);
+  }
+}
+
+/* 그라데이션·쉐도우 유틸 (자연스러운 라임 그린 톤) */
+.gradient-primary {
+  background: linear-gradient(135deg, #7a9030 0%, #94AC3A 45%, #a8c04d 75%, #b5ca6a 100%);
+}
+.gradient-text-primary {
+  background: linear-gradient(90deg, #7a9030 0%, #94AC3A 50%, #a8c04d 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.gradient-muted {
+  background: linear-gradient(180deg, var(--background) 0%, var(--background-alt) 100%);
+}
+.card-lift {
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(148, 172, 58, 0.08);
+}
+.card-lift:hover {
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 12px 24px rgba(148, 172, 58, 0.12);
+}
+.accent-left {
+  border-left: 4px solid var(--primary);
+}
+.accent-bottom {
+  border-bottom: 3px solid var(--primary);
+}
+
+/* 단계별 색상 (메인 컬러 반영) */
+.stage-normal { color: var(--primary-dark); }
+.stage-caution { color: #b8860b; }
+.stage-risk { color: #a52a2a; }
