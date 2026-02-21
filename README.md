@@ -3,6 +3,14 @@
 🔗 **Live Demo**  
 https://modam-chi.vercel.app/
 
+## *Authentication Status
+
+- 현재 프론트엔드 중심 MVP 단계
+- 백엔드 인증 API 미연결 상태
+- 로그인 버튼 클릭 시 데모 화면으로 이동
+
+추후 JWT 기반 인증 및 사용자 세션 관리 기능이 추가될 예정입니다.
+
 <p align="center">
   <img width="900"
     src="https://github.com/user-attachments/assets/38124a28-21cc-4dfa-9679-468b17174944" />
