@@ -83,7 +83,10 @@ MODAM은 사용자가 두피 사진을 업로드하면 AI 분석을 통해 탈�
 
 <img width="1710" height="982" alt="image" src="https://github.com/user-attachments/assets/90e29bbb-8d9f-4862-bd8b-ff27dcf128b4" />
 - imagefx를 활용하여 로고를 제작하였습니다.
-
+<br><br><br>
+<img width="1710" height="1088" alt="image" src="https://github.com/user-attachments/assets/5cbac573-ed7a-407e-a4c4-5610c68768d7" />
+- manyfast를 활용하여 기능명세서를 작성하였습니다. (일부 확대)
+  <br><br><br>
 ## 기술 스택 (예정)
 
 - Frontend: React Native / Flutter
