@@ -21,6 +21,7 @@ export default function CommunityPage() {
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [sortBy, setSortBy] = useState("latest"); // latest, views, likes, comments
 
   const isAdmin = profile?.username === "modamadmin";
 
@@ -40,13 +41,13 @@ export default function CommunityPage() {
   const [blocks, setBlocks] = useState<any[]>([
     { id: 't1', type: 'text', value: '' }
   ]);
-  const [activeImageId, setActiveImageId] = useState<string | null>(null);
+  const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchPosts();
     window.addEventListener("focus", fetchPosts);
     return () => window.removeEventListener("focus", fetchPosts);
-  }, [category]);
+  }, [category, sortBy]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -79,21 +80,27 @@ export default function CommunityPage() {
   };
 
   // 블록 순서 변경
-  const moveImage = (direction: 'up' | 'down') => {
-    const imgIndex = blocks.findIndex(b => b.type === 'image');
-    if (imgIndex === -1) return;
+  const moveBlock = (index: number, direction: 'up' | 'down') => {
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === blocks.length - 1) return;
 
     const newBlocks = [...blocks];
-    if (direction === 'up' && imgIndex > 0) {
-      const temp = newBlocks[imgIndex];
-      newBlocks[imgIndex] = newBlocks[imgIndex - 1];
-      newBlocks[imgIndex - 1] = temp;
-    } else if (direction === 'down' && imgIndex < blocks.length - 1) {
-      const temp = newBlocks[imgIndex];
-      newBlocks[imgIndex] = newBlocks[imgIndex + 1];
-      newBlocks[imgIndex + 1] = temp;
-    }
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    [newBlocks[index], newBlocks[targetIndex]] = [newBlocks[targetIndex], newBlocks[index]];
     setBlocks(newBlocks);
+  };
+
+  const deleteBlock = (index: number) => {
+    if (blocks.length <= 1) return;
+    const blockToDelete = blocks[index];
+
+    // 이미지 블록 삭제 시 파일 상태도 초기화
+    if (blockToDelete.type === 'image') {
+      setImageFile(null);
+      setImagePreview("");
+    }
+
+    setBlocks(blocks.filter((_, i) => i !== index));
   };
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
@@ -130,12 +137,22 @@ export default function CommunityPage() {
     if (error) {
       console.error("Error fetching posts:", error);
     } else if (data) {
-      // 정렬 로직: 공지사항(notice)을 최상단으로, 그 다음은 최신순
-      const sortedPosts = [...data].sort((a, b) => {
+      // 정렬 로직 적용
+      let sortedPosts = [...data];
+
+      // 1. 공지사항(notice)을 항상 최상단에 (필터링되지 않은 경우에만 또는 공지사항 필터일 때)
+      // 여기서는 전체 보기 혹은 공지사항 필터일 때 상단 고정
+      sortedPosts.sort((a, b) => {
         if (a.category === "notice" && b.category !== "notice") return -1;
         if (a.category !== "notice" && b.category === "notice") return 1;
+
+        // 정렬 기준 적용
+        if (sortBy === "views") return (b.view_count || 0) - (a.view_count || 0);
+        if (sortBy === "likes") return (b.like_count || 0) - (a.like_count || 0);
+        if (sortBy === "comments") return (b.comment_count || 0) - (a.comment_count || 0);
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
+
       setPosts(sortedPosts);
     }
     setLoading(false);
@@ -225,20 +242,56 @@ export default function CommunityPage() {
         </p>
       </div>
 
-      <div className="mb-6 flex justify-center gap-2 overflow-x-auto pb-2 scrollbar-hide">
-        {CATEGORIES.map((c) => (
-          <button
-            key={c.value}
-            type="button"
-            onClick={() => setCategory(c.value)}
-            className={`whitespace-nowrap rounded-full px-4 py-2 text-sm transition-all ${category === c.value
-              ? "bg-[var(--primary)] text-white shadow-md"
-              : "bg-[var(--card)] text-[var(--muted)] border border-[var(--border)] hover:border-[var(--primary)]/40"
-              }`}
-          >
-            {c.label}
-          </button>
-        ))}
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] pb-4">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* 카테고리 드롭다운 */}
+          <div className="relative">
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="appearance-none rounded-lg border border-[var(--border)] bg-[var(--card)] pl-4 pr-10 py-2.5 text-sm font-bold text-[var(--foreground)] focus:border-[var(--primary)] focus:outline-none transition-all cursor-pointer hover:bg-gray-50/50"
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c.value} value={c.value}>{c.label}</option>
+              ))}
+            </select>
+            <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+
+          {/* 정렬 드롭다운 */}
+          <div className="relative">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              className="appearance-none rounded-lg border border-[var(--border)] bg-[var(--card)] pl-4 pr-10 py-2.5 text-sm font-bold text-[var(--foreground)] focus:border-[var(--primary)] focus:outline-none transition-all cursor-pointer hover:bg-gray-50/50"
+            >
+              <option value="latest">최신순</option>
+              <option value="views">조회수순</option>
+              <option value="likes">좋아요순</option>
+              <option value="comments">댓글순</option>
+            </select>
+            <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={handleWriteClick}
+          className="gradient-primary flex items-center gap-2 rounded-lg px-5 py-2.5 text-sm font-bold text-white shadow-lg transition-all hover:opacity-90 active:scale-95"
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          </svg>
+          글쓰기
+        </button>
       </div>
 
       {loading ? (
@@ -308,8 +361,8 @@ export default function CommunityPage() {
                         </svg>
                         {p.like_count || 0}
                       </span>
-                      <span className="flex items-center gap-1">
-                        <svg className="h-3.5 w-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <span className="flex items-center gap-1 text-[var(--primary)] font-medium bg-[var(--primary-pale)] px-2 py-0.5 rounded-md">
+                        <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
                         </svg>
                         {p.comment_count || 0}
@@ -376,13 +429,18 @@ export default function CommunityPage() {
               </div>
 
               {/* 시각적 블록 편집기 영역 */}
-              <div className="rounded-xl border border-[var(--border)] bg-gray-50/30 p-4 space-y-4 min-h-[400px]">
+              <div className="rounded-xl border border-[var(--border)] bg-gray-50/30 p-4 min-h-[400px]">
                 <label className="block text-xs font-bold text-[var(--muted)] uppercase tracking-wider">Editor Preview & Edit</label>
 
                 {blocks.map((block, idx) => {
                   if (block.type === 'image') {
                     const sizeClasses: any = { small: 'w-1/3', medium: 'w-2/3', large: 'w-full' };
-                    const alignClasses: any = { left: 'mr-auto', center: 'mx-auto', right: 'ml-auto' };
+                    // 에러 수정을 위해 float 클래스 적용
+                    const alignClasses: any = {
+                      left: 'float-left mr-4 mb-4',
+                      center: 'mx-auto block mb-4 clear-both',
+                      right: 'float-right ml-4 mb-4'
+                    };
 
                     return (
                       <div
@@ -391,24 +449,31 @@ export default function CommunityPage() {
                         onDragStart={(e) => handleDragStart(e, idx)}
                         onDragOver={handleDragOver}
                         onDrop={(e) => handleDrop(e, idx)}
-                        className="relative group py-2"
+                        className={`relative group ${imageAlign === 'center' ? 'clear-both' : 'z-10'} my-2`}
                       >
-                        {/* 위치 이동 버튼 */}
-                        <div className="absolute -left-10 top-1/2 -translate-y-1/2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button type="button" onClick={() => moveImage('up')} className="p-1 bg-white border rounded shadow-sm hover:bg-gray-50 flex items-center justify-center text-[10px]">▲</button>
-                          <button type="button" onClick={() => moveImage('down')} className="p-1 bg-white border rounded shadow-sm hover:bg-gray-50 flex items-center justify-center text-[10px]">▼</button>
+                        {/* 위치 이동 및 삭제 버튼 */}
+                        <div className="absolute -left-10 top-1/2 -translate-y-1/2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                          <button type="button" onClick={() => moveBlock(idx, 'up')} className="p-1 bg-white border rounded shadow-sm hover:bg-gray-50 flex items-center justify-center text-[10px]">▲</button>
+                          <button type="button" onClick={() => moveBlock(idx, 'down')} className="p-1 bg-white border rounded shadow-sm hover:bg-gray-50 flex items-center justify-center text-[10px]">▼</button>
                           <div className="cursor-grab p-1 bg-gray-100 border rounded shadow-sm text-[8px] flex items-center justify-center">☰</div>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() => deleteBlock(idx)}
+                          className="absolute -top-1 -right-1 z-30 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 active:scale-95"
+                        >
+                          <span className="text-xs font-bold">×</span>
+                        </button>
 
                         <div
-                          className={`relative cursor-pointer overflow-hidden rounded-lg border-2 transition-all ${activeImageId === block.id ? 'border-[var(--primary)] ring-4 ring-[var(--primary-pale)]' : 'border-transparent hover:border-gray-300'} ${sizeClasses[imageSize]} ${alignClasses[imageAlign]}`}
-                          onClick={() => setActiveImageId(activeImageId === block.id ? null : block.id)}
+                          className={`relative cursor-pointer overflow-hidden rounded-lg border-2 transition-all ${activeBlockId === block.id ? 'border-[var(--primary)] ring-4 ring-[var(--primary-pale)]' : 'border-transparent hover:border-gray-300'} ${sizeClasses[imageSize]} ${alignClasses[imageAlign]}`}
+                          onClick={() => setActiveBlockId(activeBlockId === block.id ? null : block.id)}
                         >
                           <img src={block.value} alt="Preview" className="w-full h-auto" />
 
                           {/* 이미지 설정 오버레이 */}
-                          {activeImageId === block.id && (
-                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[2px] animate-in fade-in zoom-in duration-200">
+                          {activeBlockId === block.id && (
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[2px] animate-in fade-in zoom-in duration-200 z-20">
                               <div className="bg-white rounded-xl p-3 shadow-xl space-y-3" onClick={e => e.stopPropagation()}>
                                 <div className="space-y-1">
                                   <p className="text-[10px] font-bold text-gray-400 text-center uppercase">Size</p>
@@ -430,7 +495,7 @@ export default function CommunityPage() {
                                     ))}
                                   </div>
                                 </div>
-                                <button type="button" onClick={() => setActiveImageId(null)} className="w-full py-2 text-xs font-bold bg-[var(--primary)] text-white rounded-lg hover:opacity-90 shadow-md">설정 완료</button>
+                                <button type="button" onClick={() => setActiveBlockId(null)} className="w-full py-2 text-xs font-bold bg-[var(--primary)] text-white rounded-lg hover:opacity-90 shadow-md">설정 완료</button>
                               </div>
                             </div>
                           )}
@@ -438,29 +503,6 @@ export default function CommunityPage() {
                       </div>
                     );
                   }
-
-                  return (
-                    <div
-                      key={block.id}
-                      draggable
-                      onDragStart={(e) => handleDragStart(e, idx)}
-                      onDragOver={handleDragOver}
-                      onDrop={(e) => handleDrop(e, idx)}
-                      className="group relative"
-                    >
-                      <div className="absolute -left-10 top-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab text-gray-300">☰</div>
-                      <textarea
-                        placeholder="여기에 내용을 입력하세요..."
-                        value={block.value}
-                        onChange={(e) => {
-                          const newBlocks = [...blocks];
-                          newBlocks[idx].value = e.target.value;
-                          setBlocks(newBlocks);
-                        }}
-                        className="w-full min-h-[100px] bg-transparent resize-none border-none focus:ring-0 text-base leading-relaxed placeholder:text-gray-300 py-2"
-                      />
-                    </div>
-                  );
                 })}
 
                 {/* 하단 텍스트 블록 자동 추가 (항상 마지막은 텍스트여야 함) */}
@@ -494,8 +536,9 @@ export default function CommunityPage() {
               </div>
             </form>
           </div>
-        </div>
-      )}
-    </div>
+        </div >
+      )
+      }
+    </div >
   );
 }

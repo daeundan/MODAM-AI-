@@ -32,7 +32,7 @@ export default function PostDetailPage() {
     const [editImageSize, setEditImageSize] = useState("medium");
     const [editImageAlign, setEditImageAlign] = useState("center");
     const [editBlocks, setEditBlocks] = useState<any[]>([]);
-    const [activeEditImageId, setActiveEditImageId] = useState<string | null>(null);
+    const [activeEditBlockId, setActiveEditBlockId] = useState<string | null>(null);
 
     const isAdmin = profile?.username === "modamadmin";
 
@@ -213,21 +213,19 @@ export default function PostDetailPage() {
         }
     };
 
-    const moveEditImage = (direction: 'up' | 'down') => {
-        const imgIndex = editBlocks.findIndex(b => b.type === 'image');
-        if (imgIndex === -1) return;
+    const moveEditBlock = (index: number, direction: 'up' | 'down') => {
+        if (direction === 'up' && index === 0) return;
+        if (direction === 'down' && index === editBlocks.length - 1) return;
 
         const newBlocks = [...editBlocks];
-        if (direction === 'up' && imgIndex > 0) {
-            const temp = newBlocks[imgIndex];
-            newBlocks[imgIndex] = newBlocks[imgIndex - 1];
-            newBlocks[imgIndex - 1] = temp;
-        } else if (direction === 'down' && imgIndex < editBlocks.length - 1) {
-            const temp = newBlocks[imgIndex];
-            newBlocks[imgIndex] = newBlocks[imgIndex + 1];
-            newBlocks[imgIndex + 1] = temp;
-        }
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        [newBlocks[index], newBlocks[targetIndex]] = [newBlocks[targetIndex], newBlocks[index]];
         setEditBlocks(newBlocks);
+    };
+
+    const deleteEditBlock = (index: number) => {
+        if (editBlocks.length <= 1) return;
+        setEditBlocks(editBlocks.filter((_, i) => i !== index));
     };
 
     const handleEditDragStart = (e: React.DragEvent, index: number) => {
@@ -315,6 +313,15 @@ export default function PostDetailPage() {
             console.error("Delete comment error:", error);
             alert("댓글 삭제 실패: " + error.message);
         } else {
+            // 댓글 수 갱신
+            const { count }: any = await supabase
+                .from("community_comments")
+                .select("*", { count: "exact", head: true })
+                .eq("post_id", id);
+
+            if (count !== null) {
+                await supabase.from("community_posts").update({ comment_count: count }).eq("id", id);
+            }
             fetchPostAndComments();
         }
     };
@@ -370,49 +377,69 @@ export default function PostDetailPage() {
                         </div>
 
                         {/* 시각적 블록 편집기 영역 (수정 모드) */}
-                        <div className="rounded-xl border border-[var(--border)] bg-gray-50/30 p-4 space-y-4 min-h-[400px]">
+                        <div className="rounded-xl border border-[var(--border)] bg-gray-50/30 p-4 min-h-[400px]">
                             {editBlocks.map((block, idx) => {
                                 if (block.type === 'image') {
                                     const sizeClasses: any = { small: 'w-1/3', medium: 'w-2/3', large: 'w-full' };
-                                    const alignClasses: any = { left: 'mr-auto', center: 'mx-auto', right: 'ml-auto' };
+                                    const alignClasses: any = {
+                                        left: 'float-left mr-4 mb-4',
+                                        center: 'mx-auto block mb-4 clear-both',
+                                        right: 'float-right ml-4 mb-4'
+                                    };
 
                                     return (
-                                        <div key={block.id} className="relative group py-2">
-                                            <div className="absolute -left-10 top-1/2 -translate-y-1/2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button type="button" onClick={() => moveEditImage('up')} className="p-1 bg-white border rounded shadow-sm hover:bg-gray-50">▲</button>
-                                                <button type="button" onClick={() => moveEditImage('down')} className="p-1 bg-white border rounded shadow-sm hover:bg-gray-50">▼</button>
+                                        <div
+                                            key={block.id}
+                                            draggable
+                                            onDragStart={(e) => handleEditDragStart(e, idx)}
+                                            onDragOver={handleEditDragOver}
+                                            onDrop={(e) => handleEditDrop(e, idx)}
+                                            className={`relative group ${editImageAlign === 'center' ? 'clear-both' : 'z-10'} my-2`}
+                                        >
+                                            <div className="absolute -left-10 top-1/2 -translate-y-1/2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                                <button type="button" onClick={(e) => { e.stopPropagation(); moveEditBlock(idx, 'up'); }} className="p-1 bg-white border rounded shadow-sm hover:bg-gray-50 flex items-center justify-center text-[10px]">▲</button>
+                                                <button type="button" onClick={(e) => { e.stopPropagation(); moveEditBlock(idx, 'down'); }} className="p-1 bg-white border rounded shadow-sm hover:bg-gray-50 flex items-center justify-center text-[10px]">▼</button>
+                                                <div className="cursor-grab p-1 bg-gray-100 border rounded shadow-sm text-[8px] flex items-center justify-center">☰</div>
                                             </div>
 
+                                            <button
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); deleteEditBlock(idx); }}
+                                                className="absolute -top-1 -right-1 z-30 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 active:scale-95"
+                                            >
+                                                <span className="text-xs font-bold">×</span>
+                                            </button>
+
                                             <div
-                                                className={`relative cursor-pointer overflow-hidden rounded-lg border-2 transition-all ${activeEditImageId === block.id ? 'border-[var(--primary)] ring-4 ring-[var(--primary-pale)]' : 'border-transparent hover:border-gray-300'} ${sizeClasses[editImageSize]} ${alignClasses[editImageAlign]}`}
-                                                onClick={() => setActiveEditImageId(activeEditImageId === block.id ? null : block.id)}
+                                                className={`relative cursor-pointer overflow-hidden rounded-lg border-2 transition-all ${activeEditBlockId === block.id ? 'border-[var(--primary)] ring-4 ring-[var(--primary-pale)]' : 'border-transparent hover:border-gray-300'} ${sizeClasses[editImageSize]} ${alignClasses[editImageAlign]}`}
+                                                onClick={() => setActiveEditBlockId(activeEditBlockId === block.id ? null : block.id)}
                                             >
                                                 <img src={block.value} alt="Preview" className="w-full h-auto" />
 
-                                                {activeEditImageId === block.id && (
-                                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[2px] animate-in fade-in zoom-in duration-200">
+                                                {activeEditBlockId === block.id && (
+                                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[2px] animate-in fade-in zoom-in duration-200 z-20">
                                                         <div className="bg-white rounded-xl p-3 shadow-xl space-y-3" onClick={e => e.stopPropagation()}>
                                                             <div className="space-y-1">
-                                                                <p className="text-[10px] font-bold text-gray-400 text-center">크기 선택</p>
-                                                                <div className="flex gap-1">
+                                                                <p className="text-[10px] font-bold text-gray-400 text-center uppercase">Size</p>
+                                                                <div className="flex gap-1 justify-center">
                                                                     {['small', 'medium', 'large'].map(s => (
-                                                                        <button key={s} type="button" onClick={() => setEditImageSize(s)} className={`px-3 py-1 text-[10px] rounded-md border ${editImageSize === s ? 'bg-[var(--primary)] text-white border-[var(--primary)]' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                                                                        <button key={s} type="button" onClick={() => setEditImageSize(s)} className={`px-3 py-1 text-[10px] rounded-md border transition-all ${editImageSize === s ? 'bg-[var(--primary)] text-white border-[var(--primary)] shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:border-[var(--primary)]'}`}>
                                                                             {s === 'small' ? '작게' : s === 'medium' ? '중간' : '크게'}
                                                                         </button>
                                                                     ))}
                                                                 </div>
                                                             </div>
                                                             <div className="space-y-1">
-                                                                <p className="text-[10px] font-bold text-gray-400 text-center">정렬</p>
-                                                                <div className="flex gap-1">
+                                                                <p className="text-[10px] font-bold text-gray-400 text-center uppercase">Align</p>
+                                                                <div className="flex gap-1 justify-center">
                                                                     {['left', 'center', 'right'].map(a => (
-                                                                        <button key={a} type="button" onClick={() => setEditImageAlign(a)} className={`px-3 py-1 text-[10px] rounded-md border ${editImageAlign === a ? 'bg-[var(--primary)] text-white border-[var(--primary)]' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                                                                        <button key={a} type="button" onClick={() => setEditImageAlign(a)} className={`px-3 py-1 text-[10px] rounded-md border transition-all ${editImageAlign === a ? 'bg-[var(--primary)] text-white border-[var(--primary)] shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:border-[var(--primary)]'}`}>
                                                                             {a === 'left' ? '왼쪽' : a === 'center' ? '가운데' : '오른쪽'}
                                                                         </button>
                                                                     ))}
                                                                 </div>
                                                             </div>
-                                                            <button type="button" onClick={() => setActiveEditImageId(null)} className="w-full py-1.5 text-xs font-bold bg-gray-100 rounded-lg hover:bg-gray-200">확인</button>
+                                                            <button type="button" onClick={() => setActiveEditBlockId(null)} className="w-full py-2 text-xs font-bold bg-[var(--primary)] text-white rounded-lg hover:opacity-90 shadow-md">설정 완료</button>
                                                         </div>
                                                     </div>
                                                 )}
@@ -422,16 +449,67 @@ export default function PostDetailPage() {
                                 }
 
                                 return (
-                                    <textarea
+                                    <div
                                         key={block.id}
-                                        value={block.value}
-                                        onChange={(e) => {
-                                            const newBlocks = [...editBlocks];
-                                            newBlocks[idx].value = e.target.value;
-                                            setEditBlocks(newBlocks);
-                                        }}
-                                        className="w-full min-h-[100px] bg-transparent resize-none border-none focus:ring-0 text-base leading-relaxed placeholder:text-gray-300"
-                                    />
+                                        draggable
+                                        onDragStart={(e) => handleEditDragStart(e, idx)}
+                                        onDragOver={handleEditDragOver}
+                                        onDrop={(e) => handleEditDrop(e, idx)}
+                                        className={`group relative overflow-hidden ${editImageAlign === 'center' ? 'clear-both mb-1' : ''} border-2 border-transparent hover:border-gray-200 rounded-lg p-1 transition-all ${activeEditBlockId === block.id ? 'ring-2 ring-[var(--primary-pale)] border-[var(--primary)]' : ''}`}
+                                        onClick={() => setActiveEditBlockId(activeEditBlockId === block.id ? null : block.id)}
+                                    >
+                                        <div className="absolute -left-10 top-1/2 -translate-y-1/2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                            <button type="button" onClick={(e) => { e.stopPropagation(); moveEditBlock(idx, 'up'); }} className="p-1 bg-white border rounded shadow-sm hover:bg-gray-50 flex items-center justify-center text-[10px]">▲</button>
+                                            <button type="button" onClick={(e) => { e.stopPropagation(); moveEditBlock(idx, 'down'); }} className="p-1 bg-white border rounded shadow-sm hover:bg-gray-50 flex items-center justify-center text-[10px]">▼</button>
+                                            <div className="cursor-grab p-1 bg-gray-100 border rounded shadow-sm text-[8px] flex items-center justify-center">☰</div>
+                                        </div>
+
+                                        <button
+                                            type="button"
+                                            onClick={(e) => { e.stopPropagation(); deleteEditBlock(idx); }}
+                                            className="absolute top-0 right-0 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-white shadow-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 active:scale-95 m-1"
+                                        >
+                                            <span className="text-xs font-bold">×</span>
+                                        </button>
+
+                                        <textarea
+                                            ref={(el) => {
+                                                if (el) {
+                                                    el.style.height = 'auto';
+                                                    el.style.height = `${el.scrollHeight}px`;
+                                                }
+                                            }}
+                                            value={block.value}
+                                            onChange={(e) => {
+                                                const newBlocks = [...editBlocks];
+                                                newBlocks[idx].value = e.target.value;
+                                                setEditBlocks(newBlocks);
+
+                                                // 높이 자동 조절
+                                                e.target.style.height = 'auto';
+                                                e.target.style.height = `${e.target.scrollHeight}px`;
+                                            }}
+                                            onFocus={(e) => {
+                                                setActiveEditBlockId(block.id);
+                                                e.target.style.height = 'auto';
+                                                e.target.style.height = `${e.target.scrollHeight}px`;
+                                            }}
+                                            className={`w-full min-h-[50px] bg-transparent resize-none border-none focus:ring-0 text-base leading-relaxed placeholder:text-gray-300 py-1 overflow-hidden ${editImageAlign === 'right' ? 'text-right' : editImageAlign === 'center' ? 'text-center' : 'text-left'}`}
+                                        />
+
+                                        {/* 텍스트 설정 오버레이 */}
+                                        {activeEditBlockId === block.id && block.type === 'text' && (
+                                            <div className="absolute bottom-2 right-2 animate-in fade-in slide-in-from-bottom-2 duration-200 z-10">
+                                                <div className="flex gap-1 bg-white border rounded-lg p-1 shadow-lg" onClick={e => e.stopPropagation()}>
+                                                    {['left', 'center', 'right'].map(a => (
+                                                        <button key={a} type="button" onClick={() => setEditImageAlign(a)} className={`px-2 py-1 text-[10px] rounded-md border transition-all ${editImageAlign === a ? 'bg-[var(--primary)] text-white border-[var(--primary)] shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:border-[var(--primary)]'}`}>
+                                                            {a === 'left' ? '왼쪽' : a === 'center' ? '가운데' : '오른쪽'}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
                                 );
                             })}
                         </div>
@@ -574,12 +652,22 @@ export default function PostDetailPage() {
                 <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-sm">
                     <form onSubmit={handleCommentSubmit}>
                         <textarea
+                            ref={(el) => {
+                                if (el) {
+                                    el.style.height = 'auto';
+                                    el.style.height = `${el.scrollHeight}px`;
+                                }
+                            }}
                             value={commentContent}
-                            onChange={(e) => setCommentContent(e.target.value)}
+                            onChange={(e) => {
+                                setCommentContent(e.target.value);
+                                e.target.style.height = 'auto';
+                                e.target.style.height = `${e.target.scrollHeight}px`;
+                            }}
                             placeholder={user ? "댓글을 입력하세요..." : "로그인 후 댓글을 작성할 수 있습니다."}
                             disabled={!user || isSubmitting}
-                            rows={3}
-                            className="w-full resize-none bg-transparent text-sm focus:outline-none disabled:cursor-not-allowed"
+                            rows={1}
+                            className="w-full resize-none bg-transparent text-sm focus:outline-none disabled:cursor-not-allowed min-h-[40px] overflow-hidden"
                         />
                         <div className="mt-2 flex justify-end">
                             <button
