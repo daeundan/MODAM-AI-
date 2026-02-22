@@ -8,7 +8,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        storageKey: 'modam-auth-v2',
+        storageKey: 'modam-session-v4', // 키를 한 번 더 변경하여 완전히 초기화
     }
 });
 

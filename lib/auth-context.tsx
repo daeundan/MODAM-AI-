@@ -34,43 +34,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isReady, setIsReady] = useState(false);
   const [isGuest, setIsGuest] = useState(false);
 
-  const fetchProfile = async (userId: string) => {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", userId)
-      .single();
+  const fetchProfile = async (userId: string, retries = 2) => {
+    const withTimeout = (promise: Promise<any>, ms: number) =>
+      Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), ms))]);
 
-    if (!error && data) {
-      setProfile(data as Profile);
+    for (let i = 0; i < retries; i++) {
+      console.log(`Fetching profile (attempt ${i + 1}/${retries}) for:`, userId);
+      try {
+        const query = supabase.from("profiles").select("*").eq("id", userId).single();
+        const { data, error } = await withTimeout(Promise.resolve(query), 3000) as any;
+
+        if (error) {
+          console.warn(`Profile fetch attempt ${i + 1} failed:`, error.message);
+          if (i < retries - 1) await new Promise(res => setTimeout(res, 1000));
+          continue;
+        }
+
+        if (data) {
+          console.log("✅ Profile loaded:", data.nickname);
+          setProfile(data as Profile);
+          return;
+        }
+      } catch (err) {
+        console.warn(`Profile fetch error (attempt ${i + 1}):`, err);
+        if (i < retries - 1) await new Promise(res => setTimeout(res, 1000));
+      }
     }
+    console.warn("❌ Failed to fetch profile after retries.");
   };
 
   useEffect(() => {
-    // 세션 유지 시 게스트 모드 해제
     const initAuth = async () => {
-      // 2초 타임아웃 추가
-      const timeout = new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Auth Timeout")), 2000)
-      );
+      console.log("Starting Auth initialization...");
+      const safetyHandle = setTimeout(() => {
+        setIsReady(true);
+      }, 5000);
 
       try {
-        const result = await Promise.race([
-          supabase.auth.getSession(),
-          timeout
-        ]) as any;
-
-        const { data: { session }, error: sessionError } = result;
-
-        if (sessionError) console.error("Supabase session error:", sessionError);
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) throw sessionError;
 
         if (session?.user) {
           setUser(session.user);
-          await fetchProfile(session.user.id);
+          // 프로필 로딩은 병렬로 처리하여 준비 상태를 늦추지 않음
+          fetchProfile(session.user.id);
         }
       } catch (err) {
-        console.warn("Auth initialization took too long or failed.");
+        console.warn("Auth init error:", err);
       } finally {
+        clearTimeout(safetyHandle);
         setIsReady(true);
       }
     };
@@ -78,13 +90,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
+        console.log("Auth Event:", event);
         try {
           setUser(session?.user ?? null);
           if (session?.user) {
             await fetchProfile(session.user.id);
             setIsGuest(false);
-          } else {
+          } else if (event === "SIGNED_OUT") {
             setProfile(null);
           }
         } catch (err) {
@@ -101,14 +114,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = async () => {
+    console.log("Aggressive signing out started...");
     try {
       await supabase.auth.signOut();
     } catch (e) {
-      console.error("Sign out error:", e);
+      console.warn("SignOut failed, clearing manually:", e);
+    } finally {
+      setUser(null);
+      setProfile(null);
+      setIsGuest(false);
+
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("sb-modam-session-v4-auth-token");
+        Object.keys(localStorage).forEach(key => {
+          if (key.includes("modam-session") || key.includes("modam-auth") || key.includes("supabase.auth.token")) {
+            localStorage.removeItem(key);
+          }
+        });
+        sessionStorage.clear();
+        console.log("Logged out and redirecting...");
+        window.location.href = "/";
+      }
     }
-    setIsGuest(false);
-    setUser(null);
-    setProfile(null);
   };
 
   const enterAsGuest = () => {

@@ -73,9 +73,9 @@ export default function Header() {
             </Link>
             <button
               type="button"
-              onClick={() => {
-                signOut();
-                window.location.href = "/";
+              onClick={async () => {
+                await signOut();
+                router.push("/");
               }}
               className={`rounded-md px-3 py-1.5 transition-colors duration-300 ${scrolled
                 ? "text-white/70 hover:bg-white/10"
@@ -177,10 +177,10 @@ export default function Header() {
 
               <button
                 type="button"
-                onClick={() => {
-                  signOut();
+                onClick={async () => {
+                  await signOut();
                   setMobileMenuOpen(false);
-                  window.location.href = "/";
+                  router.push("/");
                 }}
                 className="flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold text-red-500 transition-colors hover:bg-red-50"
               >

@@ -41,23 +41,40 @@ export default function MypagePage() {
     if (!user) return;
     setLoading(true);
 
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        nickname: editNick,
-        phone_number: editPhone,
-        address: editAddress,
-      })
-      .eq("id", user.id);
+    try {
+      // 5초 타임아웃 설정
+      const updatePromise = supabase
+        .from("profiles")
+        .update({
+          nickname: editNick,
+          phone_number: editPhone,
+          address: editAddress,
+        })
+        .eq("id", user.id);
 
-    if (error) {
-      alert("업데이트 실패: " + error.message);
-    } else {
-      await refreshProfile();
-      setIsEditing(false);
-      alert("프로필이 업데이트되었습니다.");
+      const { error } = await Promise.race([
+        updatePromise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), 15000))
+      ]) as any;
+
+      if (error) {
+        console.error("Update error:", error);
+        alert("업데이트에 실패했습니다: " + error.message);
+      } else {
+        await refreshProfile();
+        setIsEditing(false);
+        alert("프로필이 성공적으로 업데이트되었습니다! ✨");
+      }
+    } catch (err: any) {
+      console.error("Update catch error:", err);
+      if (err.message === "Timeout") {
+        alert("서버 응답이 너무 느려요. 인터넷 연결을 확인하거나 잠시 후 다시 시도해 주세요.");
+      } else {
+        alert("수정 중 오류가 발생했습니다.");
+      }
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -120,7 +137,10 @@ export default function MypagePage() {
       <div className="mb-8 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-[var(--foreground)]">마이페이지</h1>
         <button
-          onClick={() => signOut()}
+          onClick={async () => {
+            await signOut();
+            window.location.href = "/";
+          }}
           className="text-sm font-medium text-red-500 hover:underline"
         >
           로그아웃
@@ -157,8 +177,10 @@ export default function MypagePage() {
             <div className="mb-4">
               <div className="flex items-center justify-center gap-1.5">
                 <h2 className="text-lg font-bold">{profile?.nickname || "사용자"}</h2>
-                <span className="rounded-full bg-[var(--primary)]/10 px-2 py-0.5 text-[10px] font-bold text-[var(--primary)]">
-                  {profile?.user_role === "expert" ? "전문가" : profile?.user_role === "owner" ? "사장님" : "일반"}
+                <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${profile?.username === "modamadmin"
+                  ? "bg-orange-100 text-orange-600"
+                  : "bg-[var(--primary)]/10 text-[var(--primary)]"}`}>
+                  {profile?.username === "modamadmin" ? "관리자" : (profile?.user_role === "expert" ? "전문가" : profile?.user_role === "owner" ? "사장님" : "일반")}
                 </span>
               </div>
               <p className="text-xs text-[var(--muted)]">{user.email}</p>

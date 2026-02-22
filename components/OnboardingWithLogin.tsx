@@ -104,33 +104,50 @@ export default function OnboardingWithLogin({ initialMode = "login" }: { initial
       setLoading(true);
       try {
         const searchUsername = username.trim().toLowerCase();
+
+        // 타임아웃 헬퍼 (7초)
+        const withTimeout = (promise: Promise<any>, ms: number) =>
+          Promise.race([promise, new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), ms))]);
+
         // 1. 아이디로 이메일 찾기
-        const { data: profileData, error: findError } = await supabase
-          .from("profiles")
-          .select("email")
-          .eq("username", searchUsername)
-          .single();
+        const fetchEmailQuery = supabase.from("profiles").select("email").eq("username", searchUsername).single();
+        const { data: profileData, error: findError } = await withTimeout(
+          Promise.resolve(fetchEmailQuery),
+          7000
+        ) as any;
 
         if (findError || !profileData) {
-          alert("일치하는 회원 정보가 없습니다.");
+          console.error("Find user error:", findError);
+          alert("일치하는 회원 정보가 없습니다. 아이디를 확인해주세요.");
           setLoading(false);
           return;
         }
 
         // 2. 찾은 이메일로 로그인
-        const { error: loginError } = await supabase.auth.signInWithPassword({
+        const loginQuery = supabase.auth.signInWithPassword({
           email: profileData.email,
           password
         });
+        const { error: loginError } = await withTimeout(
+          Promise.resolve(loginQuery),
+          7000
+        ) as any;
 
         if (loginError) {
-          alert("로그인 실패: 비밀번호 또는 정보를 확인해주세요.");
+          console.error("Login error:", loginError);
+          alert(`로그인 실패: ${loginError.message}`);
+          setPassword(""); // 비번 틀렸을 때만 비움
         } else {
-          router.push("/");
+          // 성공 시 완전히 새로고침하여 세션 깨끗이 로드
+          window.location.href = "/";
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Login attempt failed:", err);
-        alert("로그인 중 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+        if (err.message === "Timeout") {
+          alert("인증 서버 응답이 없습니다. 페이지를 새로고침한 후 다시 시도해 주세요.");
+        } else {
+          alert("로그인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+        }
       } finally {
         setLoading(false);
       }
@@ -142,42 +159,49 @@ export default function OnboardingWithLogin({ initialMode = "login" }: { initial
       }
 
       setLoading(true);
-
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-      });
-
-      if (error) {
-        alert("회원가입 실패: " + error.message);
-      } else if (data.user) {
-        // 프로필 테이블 생성
-        const { error: profileError } = await supabase.from("profiles").insert({
-          id: data.user.id,
-          username,
-          nickname,
-          full_name: fullName,
-          phone_number: phone,
-          email: email, // 이메일 저장 추가
-          user_role: role,
-          signup_path: path,
-          address: address || null,
+      try {
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
         });
 
-        if (profileError) {
-          console.error("Profile creation error:", profileError);
-          // RLS 에러 발생 시 안내
-          if (profileError.code === "42501") {
-            alert("회원가입은 성공했으나 프로필 생성 권한이 없습니다. 관리자에게 문의하거나 SQL 설정을 확인해주세요.");
+        if (error) {
+          alert("회원가입 실패: " + error.message);
+        } else if (data.user) {
+          // 프로필 테이블 생성
+          const { error: profileError } = await supabase.from("profiles").insert({
+            id: data.user.id,
+            username: username.trim().toLowerCase(),
+            nickname: nickname.trim(),
+            full_name: fullName.trim(),
+            phone_number: phone.trim(),
+            email: email.trim(),
+            user_role: role,
+            signup_path: path,
+            address: address || null,
+          });
+
+          if (profileError) {
+            console.error("Critical: Profile table insertion failed:", profileError);
+            alert("회원가입은 되었으나 프로필 정보 저장에 실패했습니다: " + profileError.message);
           } else {
-            alert("프로필 생성 실패: " + profileError.message);
+            alert("회원가입이 완료되었습니다! 🎉\n이제 로그인해 주세요.");
+            // 폼 필드 모두 초기화
+            setUsername("");
+            setPassword("");
+            setEmail("");
+            setNickname("");
+            setFullName("");
+            setPhone("");
+            setAddress("");
+            setMode("login");
           }
-        } else {
-          alert("회원가입 성공! 이메일을 확인해주세요.");
-          setMode("login");
         }
+      } catch (err) {
+        console.error("SignUp Error:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     }
   };
 

@@ -27,6 +27,7 @@ export default function PostDetailPage() {
     // 수정 모드 상태
     const [isEditing, setIsEditing] = useState(false);
     const [editForm, setEditForm] = useState({ title: "", content: "", category: "question" });
+    const [editImageFile, setEditImageFile] = useState<File | null>(null);
 
     const isAdmin = profile?.username === "modamadmin";
 
@@ -171,10 +172,29 @@ export default function PostDetailPage() {
 
         setIsSubmitting(true);
         try {
+            let finalImageUrl = post.image_url;
+
+            // 새로운 이미지가 선택된 경우 업로드
+            if (editImageFile) {
+                const fileExt = editImageFile.name.split(".").pop();
+                const fileName = `${Date.now()}-${Math.random()}.${fileExt}`;
+                const { error: uploadError } = await supabase.storage
+                    .from("community")
+                    .upload(fileName, editImageFile);
+
+                if (uploadError) {
+                    console.error("Image update upload error:", uploadError);
+                } else {
+                    const { data: { publicUrl } } = supabase.storage.from("community").getPublicUrl(fileName);
+                    finalImageUrl = publicUrl;
+                }
+            }
+
             const { error } = await supabase.from("community_posts").update({
                 title: editForm.title,
                 content: editForm.content,
-                category: editForm.category
+                category: editForm.category,
+                image_url: finalImageUrl
             }).eq("id", id);
 
             if (error) {
@@ -183,7 +203,8 @@ export default function PostDetailPage() {
             } else {
                 alert("성공적으로 수정되었습니다! 🎉");
                 setIsEditing(false);
-                await fetchPostAndComments(); // 최신 데이터 다시 불러오기
+                setEditImageFile(null);
+                await fetchPostAndComments();
             }
         } catch (err) {
             console.error("Update catch error:", err);
@@ -215,31 +236,57 @@ export default function PostDetailPage() {
             <div className={`rounded-2xl border p-6 shadow-sm sm:p-8 ${isPostAdmin ? "border-orange-200 bg-orange-50/20" : "border-[var(--border)] bg-[var(--card)]"}`}>
                 {isEditing ? (
                     <div className="space-y-4">
-                        <input
-                            type="text"
-                            value={editForm.title}
-                            onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                            className="w-full rounded-lg border border-gray-300 p-2 text-xl font-bold focus:outline-[var(--primary)]"
-                        />
-                        <select
-                            value={editForm.category}
-                            onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-                            className="w-full rounded-lg border border-gray-300 p-2"
-                        >
-                            <option value="notice">공지사항</option>
-                            <option value="question">질문</option>
-                            <option value="info">정보 공유</option>
-                            <option value="experience">경험담</option>
-                        </select>
-                        <textarea
-                            rows={10}
-                            value={editForm.content}
-                            onChange={(e) => setEditForm({ ...editForm, content: e.target.value })}
-                            className="w-full rounded-lg border border-gray-300 p-2 focus:outline-[var(--primary)]"
-                        />
-                        <div className="flex justify-end gap-2">
-                            <button onClick={() => setIsEditing(false)} className="rounded-lg bg-gray-200 px-4 py-2 font-bold">취소</button>
-                            <button onClick={handleUpdatePost} disabled={isSubmitting} className="rounded-lg bg-[var(--primary)] px-4 py-2 font-bold text-white">수정완료</button>
+                        <div className="flex flex-col gap-1">
+                            <label className="text-xs font-bold text-gray-400">제목</label>
+                            <input
+                                type="text"
+                                value={editForm.title}
+                                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                                className="w-full rounded-lg border border-gray-300 p-2 text-xl font-bold focus:outline-[var(--primary)]"
+                            />
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className="text-xs font-bold text-gray-400">카테고리</label>
+                            <select
+                                value={editForm.category}
+                                onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                                className="w-full rounded-lg border border-gray-300 p-2"
+                            >
+                                <option value="notice">공지사항</option>
+                                <option value="question">질문</option>
+                                <option value="info">정보 공유</option>
+                                <option value="experience">경험담</option>
+                            </select>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <label className="text-xs font-bold text-gray-400">내용</label>
+                            <textarea
+                                rows={10}
+                                value={editForm.content}
+                                onChange={(e) => setEditForm({ ...editForm, content: e.target.value })}
+                                className="w-full rounded-lg border border-gray-300 p-2 focus:outline-[var(--primary)]"
+                            />
+                        </div>
+
+                        {/* 수정 모드 이미지 업로드 추가 */}
+                        <div className="flex flex-col gap-2 rounded-lg border border-dashed border-gray-300 p-4">
+                            <label className="text-sm font-bold">이미지 변경</label>
+                            {post.image_url && !editImageFile && (
+                                <p className="text-xs text-blue-500">현재 이미지가 등록되어 있습니다.</p>
+                            )}
+                            <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => setEditImageFile(e.target.files?.[0] || null)}
+                                className="text-xs"
+                            />
+                        </div>
+
+                        <div className="flex justify-end gap-2 pt-4 border-t">
+                            <button onClick={() => { setIsEditing(false); setEditImageFile(null); }} className="rounded-lg bg-gray-200 px-6 py-2 font-bold transition-all hover:bg-gray-300">취소</button>
+                            <button onClick={handleUpdatePost} disabled={isSubmitting} className="gradient-primary rounded-lg px-6 py-2 font-bold text-white shadow-md transition-all hover:opacity-90 disabled:opacity-50">
+                                {isSubmitting ? "수정 중..." : "수정완료"}
+                            </button>
                         </div>
                     </div>
                 ) : (
@@ -283,7 +330,19 @@ export default function PostDetailPage() {
                             </button>
                         </div>
 
-                        <div className="mt-8 w-full whitespace-pre-wrap leading-relaxed text-[var(--foreground)]">
+                        {/* 첨부 이미지 표시 */}
+                        {post.image_url && (
+                            <div className="mt-8 overflow-hidden rounded-2xl border border-[var(--border)] bg-gray-50 shadow-sm">
+                                <img
+                                    src={post.image_url}
+                                    alt="게시글 첨부 이미지"
+                                    className="h-auto w-full object-contain max-h-[600px] mx-auto"
+                                    onError={(e) => (e.currentTarget.style.display = 'none')}
+                                />
+                            </div>
+                        )}
+
+                        <div className="mt-8 w-full whitespace-pre-wrap leading-relaxed text-[var(--foreground)] text-base sm:text-lg">
                             {post.content}
                         </div>
                     </div>
