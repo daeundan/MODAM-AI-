@@ -15,32 +15,81 @@ export default function ExpertsPage() {
         {MOCK_EXPERTS.map((e) => (
           <article
             key={e.id}
-            className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6"
+            className="group rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 transition-all hover:border-[var(--primary)]/30 hover:shadow-md sm:p-5"
           >
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-[var(--foreground)]">{e.name}</h2>
-                <p className="text-sm font-medium text-[var(--primary)]">{e.title}</p>
-                <p className="mt-1 text-sm text-[var(--muted)]">{e.hospital}</p>
-                <p className="mt-1 text-sm text-[var(--muted)]">전문: {e.specialty}</p>
-                <p className="mt-2 text-sm">
-                  ★ {e.rating}
-                  {e.consultFee && ` · ${e.consultFee}`}
-                </p>
+            <div className="flex items-start gap-4 sm:gap-6">
+              {/* Smaller Expert Image - Rounded Square */}
+              <div className="relative aspect-[3/4] w-20 shrink-0 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--muted)]/5 sm:w-28">
+                {e.imageUrl ? (
+                  <img
+                    src={e.imageUrl}
+                    alt={e.name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-[var(--muted)] text-[10px]">
+                    No Photo
+                  </div>
+                )}
               </div>
-              <div className="flex flex-col gap-2 sm:flex-row">
-                <a
-                  href="#"
-                  className="min-h-[44px] flex items-center justify-center rounded-lg bg-[var(--primary)] px-4 py-2 text-sm text-white hover:bg-[var(--primary-light)] transition-colors active:scale-[0.98]"
-                >
-                  상담 예약
-                </a>
-                <a
-                  href="#"
-                  className="min-h-[44px] flex items-center justify-center rounded-lg border border-[var(--border)] px-4 py-2 text-sm hover:bg-[var(--background)] transition-colors active:scale-[0.98]"
-                >
-                  병원 정보
-                </a>
+
+              {/* Expert Info */}
+              <div className="flex flex-1 flex-col justify-between min-w-0">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-lg font-bold text-[var(--foreground)] sm:text-xl">{e.name}</h2>
+                      <span className="rounded-full bg-[var(--primary)]/10 px-2 py-0.5 text-[10px] font-bold text-[var(--primary)]">
+                        {e.title}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm font-medium text-[var(--foreground)]">{e.hospital}</p>
+                    <p className="mt-1 line-clamp-1 text-xs text-[var(--muted)] sm:text-sm">
+                      {e.specialty}
+                    </p>
+                    <div className="mt-2 flex items-center gap-2 text-xs sm:text-sm">
+                      <span className="font-bold text-orange-500">★ {e.rating}</span>
+                      {e.consultFee && (
+                        <>
+                          <span className="text-[var(--muted)]">·</span>
+                          <span className="font-semibold text-[var(--primary)]">{e.consultFee}</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Desktop Actions */}
+                  <div className="hidden shrink-0 flex-col gap-2 sm:flex">
+                    <a
+                      href="#"
+                      className="min-w-[120px] rounded-lg bg-[var(--primary)] px-4 py-2 text-center text-sm font-bold text-white hover:bg-[var(--primary-light)] transition-colors active:scale-[0.95]"
+                    >
+                      상담 예약
+                    </a>
+                    <a
+                      href="#"
+                      className="min-w-[120px] rounded-lg border border-[var(--border)] px-4 py-2 text-center text-sm font-semibold hover:bg-[var(--background)] transition-colors active:scale-[0.95]"
+                    >
+                      정보 보기
+                    </a>
+                  </div>
+                </div>
+
+                {/* Mobile Actions */}
+                <div className="mt-4 flex gap-2 sm:hidden">
+                  <a
+                    href="#"
+                    className="flex-1 rounded-lg bg-[var(--primary)] py-2 text-center text-xs font-bold text-white active:scale-[0.98]"
+                  >
+                    상담 예약
+                  </a>
+                  <a
+                    href="#"
+                    className="flex-1 rounded-lg border border-[var(--border)] py-2 text-center text-xs font-semibold active:scale-[0.98]"
+                  >
+                    상세 정보
+                  </a>
+                </div>
               </div>
             </div>
           </article>

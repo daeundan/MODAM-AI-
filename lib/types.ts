@@ -47,6 +47,7 @@ export interface Expert {
   specialty: string;
   rating: number;
   consultFee?: string;
+  imageUrl?: string;
 }
 
 export interface CommunityPost {
