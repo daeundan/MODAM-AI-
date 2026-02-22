@@ -77,8 +77,10 @@ export default function ReviewSection() {
                 flexDirection: "column",
                 gap: "12px",
                 justifyContent: "center",
-                padding: "16px 50px 0",
+                // padding: "16px 50px 0",
+                padding: "16px 0",
                 flexWrap: "wrap",
+                minWidth: "300px"
             }}>
                 <button onClick={openModal} style={btnStyle()}>
                     단이에게 한줄평 남기기 ✍️
@@ -96,17 +98,18 @@ export default function ReviewSection() {
             {/* 리뷰 목록 */}
             {showList && (
                 <div style={{
-                    margin: "12px 50px",
+                    // margin: "12px 50px",
                     borderRadius: "12px",
                     background: "#f9fafb",
                     border: "1px solid #e5e7eb",
                     maxHeight: "240px",
                     overflowY: "auto",
                     padding: "8px 0",
+                    minWidth: "300px"
                 }}>
                     {reviews.length === 0 ? (
                         <p style={{ textAlign: "center", color: "#9ca3af", padding: "20px", fontSize: "14px" }}>
-                            아직 리뷰가 없어요. 첫 번째 리뷰를 남겨보세요! 🌱
+                            리뷰를 로딩 중 입니다. <br /> 잠시만 기다려주세요 🌱
                         </p>
                     ) : (
                         reviews.map((r) => (

@@ -36,6 +36,7 @@ export interface Product {
   rating: number;
   reviewCount: number;
   imageUrl?: string;
+  affiliateUrl?: string;
 }
 
 export interface Expert {

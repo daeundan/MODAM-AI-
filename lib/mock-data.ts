@@ -50,6 +50,7 @@ export const MOCK_PRODUCTS: Product[] = [
     priceRange: "2만원대",
     rating: 4.5,
     reviewCount: 320,
+    affiliateUrl: "https://www.coupang.com/np/search?component=&q=%EB%91%90%ED%94%BC%EC%BC%80%EC%96%B4+%EC%83%B4%ED%91%B8&traceId=mlxj4cvg&channel=user",
   },
   {
     id: "p2",
@@ -59,6 +60,7 @@ export const MOCK_PRODUCTS: Product[] = [
     priceRange: "3~4만원",
     rating: 4.2,
     reviewCount: 180,
+    affiliateUrl: "https://www.coupang.com/np/search?component=&q=%ED%83%88%EB%AA%A8%EC%98%88%EB%B0%A9&traceId=mlxj556y&channel=user",
   },
   {
     id: "p3",
@@ -68,6 +70,7 @@ export const MOCK_PRODUCTS: Product[] = [
     priceRange: "1만 5천원대",
     rating: 4.7,
     reviewCount: 520,
+    affiliateUrl: "https://www.coupang.com/np/search?component=&q=%ED%83%88%EB%AA%88+%EB%B9%84%EC%98%A4%ED%8B%B4&traceId=mlxj5pj9&channel=user",
   },
   {
     id: "p4",
@@ -77,6 +80,7 @@ export const MOCK_PRODUCTS: Product[] = [
     priceRange: "5만원대",
     rating: 4.3,
     reviewCount: 95,
+    affiliateUrl: "https://www.coupang.com/np/search?component=&q=%EB%91%90%ED%94%BC%EB%A7%88%EC%82%AC%EC%A7%80%EA%B8%B0&traceId=mlxj6kyk&channel=user",
   },
 ];
 

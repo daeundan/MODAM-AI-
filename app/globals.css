@@ -2,7 +2,7 @@
 
 :root {
   /* 메인: #94AC3A (라임 그린) */
-  --primary: #94AC3A;
+  --primary: #000000;
   --primary-light: #a8c04d;
   --primary-dark: #7a9030;
   --primary-pale: #e8efd4;
@@ -41,7 +41,9 @@ body {
 
 /* 터치 디바이스 최적화 */
 @media (hover: none) and (pointer: coarse) {
-  button, a {
+
+  button,
+  a {
     -webkit-tap-highlight-color: rgba(0, 0, 0, 0.08);
   }
 }
@@ -50,38 +52,60 @@ body {
 .gradient-primary {
   background: linear-gradient(135deg, #7a9030 0%, #94AC3A 45%, #a8c04d 75%, #b5ca6a 100%);
 }
+
 .gradient-text-primary {
   background: linear-gradient(90deg, #7a9030 0%, #94AC3A 50%, #a8c04d 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
 }
+
 .gradient-muted {
   background: linear-gradient(180deg, var(--background) 0%, var(--background-alt) 100%);
 }
+
 .card-lift {
-  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(148, 172, 58, 0.08);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(148, 172, 58, 0.08);
 }
+
 .card-lift:hover {
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08), 0 12px 24px rgba(148, 172, 58, 0.12);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08), 0 12px 24px rgba(148, 172, 58, 0.12);
 }
+
 .accent-left {
   border-left: 4px solid var(--primary);
 }
+
 .accent-bottom {
   border-bottom: 3px solid var(--primary);
 }
 
 /* 단계별 색상 (메인 컬러 반영) */
-.stage-normal { color: var(--primary-dark); }
-.stage-caution { color: #b8860b; }
-.stage-risk { color: #a52a2a; }
+.stage-normal {
+  color: var(--primary-dark);
+}
+
+.stage-caution {
+  color: #b8860b;
+}
+
+.stage-risk {
+  color: #a52a2a;
+}
 
 /* 데모 유도 애니메이션 */
 @keyframes gentle-bounce {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
+
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-6px);
+  }
 }
+
 .animate-gentle-bounce {
   animation: gentle-bounce 2s ease-in-out infinite;
 }

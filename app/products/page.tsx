@@ -78,7 +78,9 @@ function ProductsContent() {
                 </p>
               </div>
               <a
-                href="#"
+                href={p.affiliateUrl || "#"}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="mt-2 shrink-0 min-h-[44px] flex items-center justify-center rounded-lg bg-[var(--primary)] px-4 py-2 text-center text-sm text-white hover:bg-[var(--primary-light)] transition-colors active:scale-[0.98] sm:mt-0"
               >
                 제휴몰에서 보기
