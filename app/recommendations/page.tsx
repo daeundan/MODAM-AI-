@@ -64,15 +64,30 @@ export default function RecommendationsPage() {
             <Link
               key={p.id}
               href={`/products?highlight=${p.id}`}
-              className="block rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 hover:border-[var(--primary)]/30"
+              className="flex gap-4 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 hover:border-[var(--primary)]/30 transition-all active:scale-[0.98]"
             >
-              <span className="text-xs text-[var(--muted)]">{CATEGORY_LABELS[p.category]}</span>
-              <h3 className="font-medium text-[var(--foreground)]">{p.name}</h3>
-              <p className="mt-1 line-clamp-2 text-sm text-[var(--muted)]">{p.description}</p>
-              <p className="mt-2 text-sm">
-                <span className="text-[var(--primary)]">{p.priceRange}</span>
-                <span className="ml-2 text-[var(--muted)]">★ {p.rating} ({p.reviewCount})</span>
-              </p>
+              <div className="relative aspect-square w-20 shrink-0 overflow-hidden rounded-lg bg-[var(--muted)]/10">
+                {p.imageUrl ? (
+                  <img
+                    src={p.imageUrl}
+                    alt={p.name}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-[var(--muted)] text-[10px]">
+                    No Image
+                  </div>
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <span className="text-[10px] text-[var(--muted)]">{CATEGORY_LABELS[p.category]}</span>
+                <h3 className="font-medium text-[var(--foreground)] truncate">{p.name}</h3>
+                <p className="mt-1 line-clamp-2 text-xs text-[var(--muted)]">{p.description}</p>
+                <p className="mt-2 text-xs">
+                  <span className="text-[var(--primary)]">{p.priceRange}</span>
+                  <span className="ml-2 text-[var(--muted)]">★ {p.rating}</span>
+                </p>
+              </div>
             </Link>
           ))}
         </div>

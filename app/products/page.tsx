@@ -14,6 +14,13 @@ const CATEGORY_OPTIONS: { value: string; label: string }[] = [
   { value: "other", label: "기타" },
 ];
 
+const CATEGORY_STYLES: Record<string, string> = {
+  shampoo: "bg-blue-50 text-blue-600 border-blue-100",
+  tonic: "bg-emerald-50 text-emerald-600 border-emerald-100",
+  supplement: "bg-purple-50 text-purple-600 border-purple-100",
+  other: "bg-orange-50 text-orange-600 border-orange-100",
+};
+
 function ProductsContent() {
   const searchParams = useSearchParams();
   const highlightId = searchParams.get("highlight");
@@ -60,34 +67,69 @@ function ProductsContent() {
       </div>
 
       <div className="space-y-4">
-        {filtered.map((p) => (
-          <article
-            key={p.id}
-            className={`rounded-xl border bg-[var(--card)] p-6 ${highlightId === p.id ? "border-[var(--primary)] ring-2 ring-[var(--primary)]/20" : "border-[var(--border)]"
-              }`}
-          >
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-              <div>
-                <span className="text-xs text-[var(--muted)]">{p.category}</span>
-                <h2 className="text-lg font-semibold text-[var(--foreground)]">{p.name}</h2>
-                <p className="mt-1 text-sm text-[var(--muted)]">{p.description}</p>
-                <p className="mt-2 text-sm">
-                  가격대: <span className="text-[var(--primary)]">{p.priceRange}</span>
-                  {" · "}
-                  ★ {p.rating} (리뷰 {p.reviewCount}개)
-                </p>
+        {filtered.map((p) => {
+          const categoryLabel = CATEGORY_OPTIONS.find((opt) => opt.value === p.category)?.label || p.category;
+          const categoryStyle = CATEGORY_STYLES[p.category] || "bg-gray-50 text-gray-600 border-gray-100";
+
+          return (
+            <article
+              key={p.id}
+              className={`rounded-xl border bg-[var(--card)] p-4 sm:p-6 transition-all hover:shadow-md ${highlightId === p.id ? "border-[var(--primary)] ring-2 ring-[var(--primary)]/20" : "border-[var(--border)]"
+                }`}
+            >
+              <div className="flex gap-4 sm:gap-6">
+                <div className="relative aspect-square w-24 shrink-0 overflow-hidden rounded-lg bg-[var(--muted)]/10 sm:w-32">
+                  {p.imageUrl ? (
+                    <img
+                      src={p.imageUrl}
+                      alt={p.name}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-[var(--muted)] text-xs">
+                      No Image
+                    </div>
+                  )}
+                </div>
+                <div className="flex flex-1 flex-col justify-between">
+                  <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex-1">
+                      <span className={`inline-block rounded-md border px-2 py-0.5 text-[10px] font-semibold tracking-tight sm:text-[11px] ${categoryStyle}`}>
+                        {categoryLabel}
+                      </span>
+                      <h2 className="mt-1 text-base font-bold text-[var(--foreground)] sm:text-lg">{p.name}</h2>
+                      <p className="mt-1 line-clamp-2 text-xs text-[var(--muted)] sm:text-sm">{p.description}</p>
+                      <p className="mt-3 text-xs sm:text-sm">
+                        <span className="text-[var(--muted)]">가격대:</span>
+                        <span className="ml-1 font-semibold text-[var(--primary)]">{p.priceRange}</span>
+                        <span className="mx-2 text-[var(--muted)]">·</span>
+                        <span className="font-medium text-[var(--foreground)]">★ {p.rating}</span>
+                        <span className="ml-1 text-[var(--muted)]">({p.reviewCount} 리뷰)</span>
+                      </p>
+                    </div>
+                    <a
+                      href={p.affiliateUrl || "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-3 hidden shrink-0 items-center justify-center rounded-lg bg-[var(--primary)] px-4 py-2 text-center text-sm font-medium text-white hover:bg-[var(--primary-light)] transition-colors active:scale-[0.95] sm:mt-0 sm:flex"
+                    >
+                      제휴몰에서 보기
+                    </a>
+                  </div>
+                  {/* Mobile Button */}
+                  <a
+                    href={p.affiliateUrl || "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-4 flex w-full items-center justify-center rounded-lg bg-[var(--primary)] py-2 text-center text-sm font-medium text-white hover:bg-[var(--primary-light)] transition-colors active:scale-[0.98] sm:hidden"
+                  >
+                    제휴몰에서 보기
+                  </a>
+                </div>
               </div>
-              <a
-                href={p.affiliateUrl || "#"}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-2 shrink-0 min-h-[44px] flex items-center justify-center rounded-lg bg-[var(--primary)] px-4 py-2 text-center text-sm text-white hover:bg-[var(--primary-light)] transition-colors active:scale-[0.98] sm:mt-0"
-              >
-                제휴몰에서 보기
-              </a>
-            </div>
-          </article>
-        ))}
+            </article>
+          );
+        })}
       </div>
 
       {filtered.length === 0 && (
