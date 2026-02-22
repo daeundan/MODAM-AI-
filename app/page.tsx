@@ -1,11 +1,16 @@
 "use client";
 
+import { useEffect } from "react";
 import { useAuth } from "@/lib/auth-context";
 import OnboardingWithLogin from "@/components/OnboardingWithLogin";
 import HomeDashboard from "@/components/HomeDashboard";
 
 export default function Home() {
   const { user, isReady, isGuest } = useAuth();
+
+  useEffect(() => {
+    console.log("Home State:", { isReady, user: user?.id, isGuest });
+  }, [isReady, user, isGuest]);
 
   if (!isReady) {
     return (

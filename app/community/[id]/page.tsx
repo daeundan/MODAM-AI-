@@ -7,6 +7,7 @@ import { supabase } from "@/lib/supabase";
 import Link from "next/link";
 
 const CATEGORIES = [
+    { value: "notice", label: "공지사항" },
     { value: "question", label: "질문" },
     { value: "info", label: "정보 공유" },
     { value: "experience", label: "경험담" },
@@ -15,13 +16,19 @@ const CATEGORIES = [
 export default function PostDetailPage() {
     const { id } = useParams();
     const router = useRouter();
-    const { user } = useAuth();
+    const { user, profile } = useAuth();
 
     const [post, setPost] = useState<any>(null);
     const [comments, setComments] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [commentContent, setCommentContent] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // 수정 모드 상태
+    const [isEditing, setIsEditing] = useState(false);
+    const [editForm, setEditForm] = useState({ title: "", content: "", category: "question" });
+
+    const isAdmin = profile?.username === "modamadmin";
 
     useEffect(() => {
         if (id) {
@@ -48,13 +55,14 @@ export default function PostDetailPage() {
             return;
         }
         setPost(postData);
+        setEditForm({ title: postData.title, content: postData.content, category: postData.category });
 
         // 댓글 가져오기
-        const { data: commentData, error: commentError } = await supabase
+        const { data: commentData, error: commentError } = await (supabase
             .from("community_comments")
             .select("*")
             .eq("post_id", id)
-            .order("created_at", { ascending: true });
+            .order("created_at", { ascending: true }) as any);
 
         if (commentError) {
             console.error("댓글을 불러오는 중 에러 발생:", commentError.message);
@@ -72,7 +80,7 @@ export default function PostDetailPage() {
 
             if (rpcError) {
                 // RPC 실패 시 수동 업데이트
-                const { data: currentPost } = await supabase.from("community_posts").select("view_count").eq("id", id).single();
+                const { data: currentPost }: any = await supabase.from("community_posts").select("view_count").eq("id", id).single();
                 if (currentPost) {
                     await supabase.from("community_posts").update({ view_count: (currentPost.view_count || 0) + 1 }).eq("id", id);
                 }
@@ -89,7 +97,7 @@ export default function PostDetailPage() {
         setPost({ ...post, like_count: (post.like_count || 0) + 1 });
 
         try {
-            const { data: currentPost } = await supabase.from("community_posts").select("like_count").eq("id", id).single();
+            const { data: currentPost }: any = await supabase.from("community_posts").select("like_count").eq("id", id).single();
             const { error } = await supabase
                 .from("community_posts")
                 .update({ like_count: (currentPost?.like_count || 0) + 1 })
@@ -112,10 +120,12 @@ export default function PostDetailPage() {
 
         setIsSubmitting(true);
 
+        const nickname = isAdmin ? "모담 관리자" : (profile?.nickname || "익명");
+
         const { error: insertError } = await supabase.from("community_comments").insert({
             post_id: id,
             user_id: user.id,
-            nickname: user.name,
+            nickname: nickname,
             content: commentContent,
         });
 
@@ -126,7 +136,7 @@ export default function PostDetailPage() {
             setCommentContent("");
 
             // 댓글 수 실시간 업데이트
-            const { count } = await supabase
+            const { count }: any = await supabase
                 .from("community_comments")
                 .select("*", { count: "exact", head: true })
                 .eq("post_id", id);
@@ -140,45 +150,144 @@ export default function PostDetailPage() {
         setIsSubmitting(false);
     };
 
+    const handleDeletePost = async () => {
+        if (!confirm("정말 이 게시글을 삭제하시겠습니까?")) return;
+
+        const { error } = await supabase.from("community_posts").delete().eq("id", id);
+        if (error) {
+            console.error("Delete post error:", error);
+            alert("삭제에 실패했습니다: " + error.message);
+        } else {
+            alert("게시글이 삭제되었습니다.");
+            router.push("/community");
+        }
+    };
+
+    const handleUpdatePost = async () => {
+        if (!editForm.title.trim() || !editForm.content.trim()) {
+            alert("제목과 내용을 입력해주세요.");
+            return;
+        }
+
+        setIsSubmitting(true);
+        try {
+            const { error } = await supabase.from("community_posts").update({
+                title: editForm.title,
+                content: editForm.content,
+                category: editForm.category
+            }).eq("id", id);
+
+            if (error) {
+                console.error("Update error:", error);
+                alert("수정에 실패했습니다: " + error.message);
+            } else {
+                alert("성공적으로 수정되었습니다! 🎉");
+                setIsEditing(false);
+                await fetchPostAndComments(); // 최신 데이터 다시 불러오기
+            }
+        } catch (err) {
+            console.error("Update catch error:", err);
+            alert("수정 중 오류가 발생했습니다.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleDeleteComment = async (commentId: string) => {
+        if (!confirm("이 댓글을 삭제하시겠습니까?")) return;
+
+        const { error } = await supabase.from("community_comments").delete().eq("id", commentId);
+        if (error) {
+            console.error("Delete comment error:", error);
+            alert("댓글 삭제 실패: " + error.message);
+        } else {
+            fetchPostAndComments();
+        }
+    };
+
     if (loading && !post) return <div className="py-20 text-center text-[var(--muted)]">로딩 중...</div>;
     if (!post) return null;
 
+    const isPostAdmin = post.nickname === "모담 관리자";
+
     return (
         <div className="mx-auto max-w-4xl px-4 pt-20 pb-6 sm:pt-26 sm:pb-12">
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-sm sm:p-8">
-                <div className="flex flex-col items-start">
-                    <div className="flex items-center gap-2">
-                        <span className="rounded-md bg-[var(--primary-pale)] px-2 py-1 text-xs font-bold text-[var(--primary)]">
-                            {CATEGORIES.find((c) => c.value === post.category)?.label || "경험담"}
-                        </span>
-                        <span className="text-xs text-[var(--muted)]">
-                            {new Date(post.created_at).toLocaleDateString("ko-KR")}
-                        </span>
-                    </div>
-
-                    <h1 className="mt-4 text-left text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
-                        {post.title}
-                    </h1>
-
-                    <div className="mt-4 flex w-full items-center justify-between border-b border-[var(--border)] pb-4 text-sm text-[var(--muted)]">
-                        <div className="flex items-center gap-2">
-                            <span className="font-bold text-[var(--foreground)]">@{post.nickname}</span>
-                            <span className="text-[var(--border)]">|</span>
-                            <span>조회수 {post.view_count || 0}</span>
-                        </div>
-                        <button
-                            onClick={handleLike}
-                            className="flex items-center gap-2 rounded-full border border-red-100 bg-red-50 px-3 py-1 text-red-500 transition-all hover:bg-red-100 active:scale-90"
+            <div className={`rounded-2xl border p-6 shadow-sm sm:p-8 ${isPostAdmin ? "border-orange-200 bg-orange-50/20" : "border-[var(--border)] bg-[var(--card)]"}`}>
+                {isEditing ? (
+                    <div className="space-y-4">
+                        <input
+                            type="text"
+                            value={editForm.title}
+                            onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                            className="w-full rounded-lg border border-gray-300 p-2 text-xl font-bold focus:outline-[var(--primary)]"
+                        />
+                        <select
+                            value={editForm.category}
+                            onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                            className="w-full rounded-lg border border-gray-300 p-2"
                         >
-                            <span className="text-lg">♥</span>
-                            <span className="font-bold">{post.like_count || 0}</span>
-                        </button>
+                            <option value="notice">공지사항</option>
+                            <option value="question">질문</option>
+                            <option value="info">정보 공유</option>
+                            <option value="experience">경험담</option>
+                        </select>
+                        <textarea
+                            rows={10}
+                            value={editForm.content}
+                            onChange={(e) => setEditForm({ ...editForm, content: e.target.value })}
+                            className="w-full rounded-lg border border-gray-300 p-2 focus:outline-[var(--primary)]"
+                        />
+                        <div className="flex justify-end gap-2">
+                            <button onClick={() => setIsEditing(false)} className="rounded-lg bg-gray-200 px-4 py-2 font-bold">취소</button>
+                            <button onClick={handleUpdatePost} disabled={isSubmitting} className="rounded-lg bg-[var(--primary)] px-4 py-2 font-bold text-white">수정완료</button>
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    <div className="flex flex-col items-start">
+                        <div className="flex w-full items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <span className={`rounded-md px-2 py-1 text-xs font-bold ${isPostAdmin ? "bg-orange-500 text-white" : "bg-[var(--primary-pale)] text-[var(--primary)]"}`}>
+                                    {CATEGORIES.find((c) => c.value === post.category)?.label || "경험담"}
+                                </span>
+                                <span className="text-xs text-[var(--muted)]">
+                                    {new Date(post.created_at).toLocaleDateString("ko-KR")}
+                                </span>
+                            </div>
 
-                <div className="mt-8 whitespace-pre-wrap leading-relaxed text-[var(--foreground)]">
-                    {post.content}
-                </div>
+                            {isAdmin && (
+                                <div className="flex gap-2">
+                                    <button onClick={() => setIsEditing(true)} className="text-xs text-blue-500 hover:underline">수정</button>
+                                    <button onClick={handleDeletePost} className="text-xs text-red-500 hover:underline">삭제</button>
+                                </div>
+                            )}
+                        </div>
+
+                        <h1 className="mt-4 text-left text-2xl font-bold text-[var(--foreground)] sm:text-3xl">
+                            {post.title}
+                        </h1>
+
+                        <div className="mt-4 flex w-full items-center justify-between border-b border-[var(--border)] pb-4 text-sm text-[var(--muted)]">
+                            <div className="flex items-center gap-2">
+                                <span className={`font-bold ${isPostAdmin ? "text-orange-600" : "text-[var(--foreground)]"}`}>
+                                    {isPostAdmin ? "" : "@"}{post.nickname}
+                                </span>
+                                <span className="text-[var(--border)]">|</span>
+                                <span>조회수 {post.view_count || 0}</span>
+                            </div>
+                            <button
+                                onClick={handleLike}
+                                className="flex items-center gap-2 rounded-full border border-red-100 bg-red-50 px-3 py-1 text-red-500 transition-all hover:bg-red-100 active:scale-90"
+                            >
+                                <span className="text-lg">♥</span>
+                                <span className="font-bold">{post.like_count || 0}</span>
+                            </button>
+                        </div>
+
+                        <div className="mt-8 w-full whitespace-pre-wrap leading-relaxed text-[var(--foreground)]">
+                            {post.content}
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* 댓글 섹션 */}
@@ -189,17 +298,30 @@ export default function PostDetailPage() {
                     {comments.length === 0 ? (
                         <li className="py-4 text-center text-sm text-[var(--muted)]">아직 댓글이 없습니다. 첫 의견을 남겨보세요!</li>
                     ) : (
-                        comments.map((c) => (
-                            <li key={c.id} className="rounded-xl border border-[var(--border)] bg-white p-4">
-                                <div className="mb-2 flex items-center justify-between">
-                                    <span className="text-sm font-bold text-[var(--primary)]">@{c.nickname}</span>
-                                    <span className="text-[10px] text-[var(--muted)]">
-                                        {new Date(c.created_at).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" })}
-                                    </span>
-                                </div>
-                                <p className="text-sm text-[var(--muted)]">{c.content}</p>
-                            </li>
-                        ))
+                        comments.map((c) => {
+                            const isCommentAdmin = c.nickname === "모담 관리자";
+                            return (
+                                <li key={c.id} className={`rounded-xl border p-4 ${isCommentAdmin ? "border-orange-200 bg-orange-50/20" : "border-[var(--border)] bg-white"}`}>
+                                    <div className="mb-2 flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <span className={`text-sm font-bold ${isCommentAdmin ? "text-orange-600" : "text-[var(--primary)]"}`}>
+                                                {isCommentAdmin ? "" : "@"}{c.nickname}
+                                            </span>
+                                            {isCommentAdmin && <span className="rounded-full bg-orange-100 px-2 py-0.5 text-[8px] font-bold text-orange-600">ADMIN</span>}
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] text-[var(--muted)]">
+                                                {new Date(c.created_at).toLocaleString("ko-KR", { dateStyle: "short", timeStyle: "short" })}
+                                            </span>
+                                            {isAdmin && (
+                                                <button onClick={() => handleDeleteComment(c.id)} className="text-[10px] text-red-400 hover:text-red-600">삭제</button>
+                                            )}
+                                        </div>
+                                    </div>
+                                    <p className="text-sm text-[var(--muted)]">{c.content}</p>
+                                </li>
+                            );
+                        })
                     )}
                 </ul>
 

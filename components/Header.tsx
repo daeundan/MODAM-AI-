@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 
 export default function Header() {
-  const { user, logout, isReady } = useAuth();
+  const { user, signOut, isReady, isGuest } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const pathname = usePathname();
@@ -22,7 +22,7 @@ export default function Header() {
   }, []);
 
   // 온보딩 화면(비로그인 첫 화면)에서는 헤더 숨김
-  if (!isReady || !user) {
+  if (!isReady || (!user && !isGuest)) {
     return null;
   }
 
@@ -74,7 +74,7 @@ export default function Header() {
             <button
               type="button"
               onClick={() => {
-                logout();
+                signOut();
                 window.location.href = "/";
               }}
               className={`rounded-md px-3 py-1.5 transition-colors duration-300 ${scrolled
@@ -178,7 +178,7 @@ export default function Header() {
               <button
                 type="button"
                 onClick={() => {
-                  logout();
+                  signOut();
                   setMobileMenuOpen(false);
                   window.location.href = "/";
                 }}

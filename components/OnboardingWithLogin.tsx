@@ -19,6 +19,7 @@ export default function OnboardingWithLogin({ initialMode = "login" }: { initial
   const [mode, setMode] = useState<"login" | "signup">(initialMode);
   const [loading, setLoading] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // 비밀번호 보기/숨기기
   const router = useRouter();
 
   // Common/Signup fields
@@ -36,23 +37,55 @@ export default function OnboardingWithLogin({ initialMode = "login" }: { initial
   const isLogin = mode === "login";
   const { enterAsGuest } = useAuth();
 
+  // 유효성 검사 규칙
+  const validations = useMemo(() => {
+    const idRegex = /^[a-z0-9_-]+$/;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phoneRegex = /^[0-9]+$/;
+    const hasKorean = /[ㄱ-ㅎ|ㅏ-ㅣ|가-힣]/;
+
+    return {
+      username: {
+        isValid: idRegex.test(username) && username.length >= 4 && username.length <= 10 && !hasKorean.test(username),
+        message: username.length > 0 && hasKorean.test(username)
+          ? "한글은 입력할 수 없습니다."
+          : username.length > 0 && (username.length < 4 || username.length > 10)
+            ? "아이디는 4~10자 사이여야 합니다."
+            : username.length > 0 && !idRegex.test(username)
+              ? "영문 소문자, 숫자, _, - 만 가능합니다."
+              : ""
+      },
+      password: {
+        isValid: password.length >= 5,
+        message: password.length > 0 && password.length < 5 ? "비밀번호는 5자 이상이어야 합니다." : ""
+      },
+      phone: {
+        isValid: phoneRegex.test(phone.replace(/-/g, "")),
+        message: phone.length > 0 && !phoneRegex.test(phone.replace(/-/g, "")) ? "숫자만 입력해주세요." : ""
+      },
+      email: {
+        isValid: emailRegex.test(email),
+        message: email.length > 0 && !emailRegex.test(email) ? "올바른 이메일 형식이 아닙니다." : ""
+      }
+    };
+  }, [username, password, phone, email]);
+
   // 필수 정보 입력 여부 확인
   const isFormValid = useMemo(() => {
     if (isLogin) {
-      return email.length > 0 && password.length > 0;
+      return username.length > 0 && password.length > 0;
     }
-    // 필수 정보: 아이디, 비밀번호(6자이상), 이름, 닉네임, 휴대폰, 이메일, 가입경로, 개인정보동의
     return (
-      username.length > 0 &&
-      password.length >= 6 &&
+      validations.username.isValid &&
+      validations.password.isValid &&
+      validations.phone.isValid &&
+      validations.email.isValid &&
       fullName.length > 0 &&
       nickname.length > 0 &&
-      phone.length > 0 &&
-      email.length > 0 &&
       path.length > 0 &&
       agreePrivacy
     );
-  }, [isLogin, email, password, username, fullName, nickname, phone, email, path, agreePrivacy]);
+  }, [isLogin, username, password, fullName, nickname, path, agreePrivacy, validations]);
 
 
   const handleAnonymousLogin = () => {
@@ -69,46 +102,46 @@ export default function OnboardingWithLogin({ initialMode = "login" }: { initial
       }
 
       setLoading(true);
-      // 1. 아이디로 이메일 찾기
-      const { data: profileData, error: findError } = await supabase
-        .from("profiles")
-        .select("email")
-        .eq("username", username)
-        .single();
+      try {
+        const searchUsername = username.trim().toLowerCase();
+        // 1. 아이디로 이메일 찾기
+        const { data: profileData, error: findError } = await supabase
+          .from("profiles")
+          .select("email")
+          .eq("username", searchUsername)
+          .single();
 
-      if (findError || !profileData) {
-        alert("일치하는 회원 정보가 없습니다.");
+        if (findError || !profileData) {
+          alert("일치하는 회원 정보가 없습니다.");
+          setLoading(false);
+          return;
+        }
+
+        // 2. 찾은 이메일로 로그인
+        const { error: loginError } = await supabase.auth.signInWithPassword({
+          email: profileData.email,
+          password
+        });
+
+        if (loginError) {
+          alert("로그인 실패: 비밀번호 또는 정보를 확인해주세요.");
+        } else {
+          router.push("/");
+        }
+      } catch (err) {
+        console.error("Login attempt failed:", err);
+        alert("로그인 중 일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.");
+      } finally {
         setLoading(false);
-        return;
       }
-
-      // 2. 찾은 이메일로 로그인
-      const { error: loginError } = await supabase.auth.signInWithPassword({
-        email: profileData.email,
-        password
-      });
-
-      if (loginError) {
-        alert("로그인 실패: 비밀번호를 확인해주세요.");
-      } else {
-        router.push("/");
-      }
-      setLoading(false);
     } else {
       // 회원가입 로직
       if (!isFormValid) {
-        alert("필수 항목을 모두 입력하고 약관에 동의해주세요.");
+        alert("모든 필수 항목을 올바르게 입력해주세요.");
         return;
       }
 
       setLoading(true);
-      // ID 유효성 검사
-      const idRegex = /^[a-z0-9]+$/;
-      if (!idRegex.test(username)) {
-        alert("아이디는 영문 소문자와 숫자 조합이어야 합니다.");
-        setLoading(false);
-        return;
-      }
 
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -218,44 +251,67 @@ export default function OnboardingWithLogin({ initialMode = "login" }: { initial
                       placeholder="아이디를 입력하세요"
                     />
                   </label>
-                  <label className="text-sm font-bold">
+                  <label className="relative text-sm font-bold">
                     비밀번호
                     <input
-                      type="password"
+                      type={showPassword ? "text" : "password"}
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="mt-2 w-full rounded-xl border border-[var(--border)] px-4 py-3 focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)]"
+                      className="mt-2 w-full rounded-xl border border-[var(--border)] px-4 py-3 pr-12 focus:border-[var(--primary)] focus:ring-1 focus:ring-[var(--primary)]"
                       placeholder="••••••••"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-4 top-10 text-gray-400 hover:text-gray-600"
+                    >
+                      {showPassword ? (
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                      ) : (
+                        <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l18 18" /></svg>
+                      )}
+                    </button>
                   </label>
                 </>
               ) : (
                 <>
-                  {/* 회원가입 정보 (요청 순서: 아이디, 비밀번호, 이름, 닉네임, 휴대폰, 주소, 이메일, 가입경로) */}
+                  {/* 회원가입 정보 */}
                   <div className="grid grid-cols-1 gap-5">
-                    <label className="text-sm font-bold">
-                      아이디 (영문 소문자+숫자) <span className="text-red-500">*</span>
-                      <input
-                        type="text"
-                        required
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value.toLowerCase())}
-                        className="mt-2 w-full rounded-xl border border-[var(--border)] px-4 py-3 focus:border-[var(--primary)]"
-                        placeholder="modam123"
-                      />
-                    </label>
-                    <label className="text-sm font-bold">
-                      비밀번호 <span className="text-red-500">*</span>
-                      <input
-                        type="password"
-                        required
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="mt-2 w-full rounded-xl border border-[var(--border)] px-4 py-3 focus:border-[var(--primary)]"
-                        placeholder="6자 이상 입력"
-                      />
-                    </label>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm font-bold">
+                        아이디 <span className="text-red-500">*</span>
+                        <input
+                          type="text"
+                          required
+                          value={username}
+                          onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                          className={`mt-2 w-full rounded-xl border px-4 py-3 focus:border-[var(--primary)] ${validations.username.message ? 'border-red-400' : 'border-[var(--border)]'}`}
+                          placeholder="4~10자 영문, 숫자 조합"
+                        />
+                      </label>
+                      {validations.username.message && (
+                        <span className="text-xs text-red-500 font-medium ml-1">{validations.username.message}</span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm font-bold">
+                        비밀번호 <span className="text-red-500">*</span>
+                        <input
+                          type="password"
+                          required
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          className={`mt-2 w-full rounded-xl border px-4 py-3 focus:border-[var(--primary)] ${validations.password.message ? 'border-red-400' : 'border-[var(--border)]'}`}
+                          placeholder="5자 이상 입력"
+                        />
+                      </label>
+                      {validations.password.message && (
+                        <span className="text-xs text-red-500 font-medium ml-1">{validations.password.message}</span>
+                      )}
+                    </div>
+
                     <label className="text-sm font-bold">
                       이름 (실명) <span className="text-red-500">*</span>
                       <input
@@ -267,6 +323,7 @@ export default function OnboardingWithLogin({ initialMode = "login" }: { initial
                         placeholder="홍길동"
                       />
                     </label>
+
                     <label className="text-sm font-bold">
                       닉네임 <span className="text-red-500">*</span>
                       <input
@@ -278,17 +335,24 @@ export default function OnboardingWithLogin({ initialMode = "login" }: { initial
                         placeholder="별명"
                       />
                     </label>
-                    <label className="text-sm font-bold">
-                      휴대폰 번호 <span className="text-red-500">*</span>
-                      <input
-                        type="tel"
-                        required
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                        className="mt-2 w-full rounded-xl border border-[var(--border)] px-4 py-3 focus:border-[var(--primary)]"
-                        placeholder="010-0000-0000"
-                      />
-                    </label>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm font-bold">
+                        휴대폰 번호 (숫자만) <span className="text-red-500">*</span>
+                        <input
+                          type="tel"
+                          required
+                          value={phone}
+                          onChange={(e) => setPhone(e.target.value)}
+                          className={`mt-2 w-full rounded-xl border px-4 py-3 focus:border-[var(--primary)] ${validations.phone.message ? 'border-red-400' : 'border-[var(--border)]'}`}
+                          placeholder="01012345678"
+                        />
+                      </label>
+                      {validations.phone.message && (
+                        <span className="text-xs text-red-500 font-medium ml-1">{validations.phone.message}</span>
+                      )}
+                    </div>
+
                     <label className="text-sm font-bold">
                       주소 (선택)
                       <input
@@ -299,17 +363,24 @@ export default function OnboardingWithLogin({ initialMode = "login" }: { initial
                         placeholder="서울시 강남구..."
                       />
                     </label>
-                    <label className="text-sm font-bold">
-                      이메일 <span className="text-red-500">*</span>
-                      <input
-                        type="email"
-                        required
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className="mt-2 w-full rounded-xl border border-[var(--border)] px-4 py-3 focus:border-[var(--primary)]"
-                        placeholder="example@modam.com"
-                      />
-                    </label>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-sm font-bold">
+                        이메일 <span className="text-red-500">*</span>
+                        <input
+                          type="email"
+                          required
+                          value={email}
+                          onChange={(e) => setEmail(e.target.value)}
+                          className={`mt-2 w-full rounded-xl border px-4 py-3 focus:border-[var(--primary)] ${validations.email.message ? 'border-red-400' : 'border-[var(--border)]'}`}
+                          placeholder="example@modam.com"
+                        />
+                      </label>
+                      {validations.email.message && (
+                        <span className="text-xs text-red-500 font-medium ml-1">{validations.email.message}</span>
+                      )}
+                    </div>
+
                     <label className="text-sm font-bold">
                       가입 경로 <span className="text-red-500">*</span>
                       <select

@@ -8,6 +8,7 @@ import Link from "next/link";
 
 const CATEGORIES = [
   { value: "", label: "전체" },
+  { value: "notice", label: "공지사항" },
   { value: "question", label: "질문" },
   { value: "info", label: "정보 공유" },
   { value: "experience", label: "경험담" },
@@ -20,6 +21,8 @@ export default function CommunityPage() {
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const isAdmin = profile?.username === "modamadmin";
 
   // 글쓰기 입력 상태
   const [newPost, setNewPost] = useState({
@@ -47,11 +50,13 @@ export default function CommunityPage() {
       query = query.eq("category", category);
     }
 
-    const { data, error } = await query;
-    if (error) {
-      console.error("Error fetching posts:", error);
+    const { data, error } = query as any; // 타입 에러 방지용 casting
+    const result = await query;
+
+    if (result.error) {
+      console.error("Error fetching posts:", result.error);
     } else {
-      setPosts(data || []);
+      setPosts(result.data || []);
     }
     setLoading(false);
   };
@@ -73,9 +78,12 @@ export default function CommunityPage() {
       return;
     }
 
+    // 관리자 계정인 경우 닉네임 고정
+    const nickname = isAdmin ? "모담 관리자" : (profile?.nickname || "익명");
+
     const { error } = await supabase.from("community_posts").insert({
       user_id: user.id,
-      nickname: profile?.nickname || "익명",
+      nickname: nickname,
       category: newPost.category,
       title: newPost.title,
       content: newPost.content,
@@ -97,7 +105,7 @@ export default function CommunityPage() {
       <div className="mb-10 text-center">
         <h1 className="mb-4 text-2xl font-bold text-[var(--foreground)] sm:text-3xl">커뮤니티</h1>
         <p className="mx-auto max-w-2xl text-[var(--muted)]">
-          익명으로 고민을 나누고 다른 분들의 경험담을 읽어보세요.
+          {isAdmin ? "관리자 권한으로 공지사항을 작성하고 게시물을 관리할 수 있습니다." : "익명으로 고민을 나누고 다른 분들의 경험담을 읽어보세요."}
         </p>
       </div>
 
@@ -117,8 +125,6 @@ export default function CommunityPage() {
         ))}
       </div>
 
-
-
       {loading ? (
         <div className="py-20 text-center text-[var(--muted)]">로딩 중...</div>
       ) : posts.length === 0 ? (
@@ -127,61 +133,57 @@ export default function CommunityPage() {
         </div>
       ) : (
         <ul className="space-y-4">
-          {posts.map((p) => (
-            <li key={p.id}>
-              <Link
-                href={`/community/${p.id}`}
-                className="card-lift block rounded-xl border border-[var(--border)] bg-[var(--card)] p-5 transition-all hover:border-[var(--primary)]/40"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="rounded-md bg-[var(--primary-pale)] px-2 py-1 text-[10px] font-bold text-[var(--primary)]">
-                    {CATEGORIES.find((c) => c.value === p.category)?.label || "경험담"}
-                  </span>
-                  <span className="text-[10px] text-[var(--muted)]">
-                    {new Date(p.created_at).toLocaleDateString("ko-KR")}
-                  </span>
-                </div>
-                <h2 className="mt-2 font-bold text-[var(--foreground)]">{p.title}</h2>
-                <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[var(--muted)]">
-                  {p.content}
-                </p>
-                <div className="mt-4 flex items-center justify-between border-t border-[var(--border)] pt-3 text-xs text-[var(--muted)]">
-                  <span className="font-medium text-[var(--primary)]">@{p.nickname}</span>
-                  <div className="flex gap-4">
-                    <span className="flex items-center gap-1">
-                      <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                        />
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                        />
-                      </svg>
-                      {p.view_count || 0}
+          {posts.map((p) => {
+            const isPostAdmin = p.nickname === "모담 관리자";
+            return (
+              <li key={p.id}>
+                <Link
+                  href={`/community/${p.id}`}
+                  className={`card-lift block rounded-xl border p-5 transition-all ${isPostAdmin
+                    ? "border-orange-200 bg-orange-50/30 hover:border-orange-300"
+                    : "border-[var(--border)] bg-[var(--card)] hover:border-[var(--primary)]/40"}`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className={`rounded-md px-2 py-1 text-[10px] font-bold ${isPostAdmin
+                      ? "bg-orange-500 text-white"
+                      : "bg-[var(--primary-pale)] text-[var(--primary)]"}`}>
+                      {CATEGORIES.find((c) => c.value === p.category)?.label || "경험담"}
                     </span>
-                    <span>♥ {p.like_count || 0}</span>
-                    <span className="flex items-center gap-1">
-                      <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
-                        />
-                      </svg>
-                      {p.comment_count || 0}
+                    <span className="text-[10px] text-[var(--muted)]">
+                      {new Date(p.created_at).toLocaleDateString("ko-KR")}
                     </span>
                   </div>
-                </div>
-              </Link>
-            </li>
-          ))}
+                  <h2 className="mt-2 font-bold text-[var(--foreground)]">
+                    {p.title}
+                  </h2>
+                  <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[var(--muted)]">
+                    {p.content}
+                  </p>
+                  <div className="mt-4 flex items-center justify-between border-t border-[var(--border)] pt-3 text-xs text-[var(--muted)]">
+                    <span className={`font-bold ${isPostAdmin ? "text-orange-600" : "text-[var(--primary)]"}`}>
+                      {isPostAdmin ? "" : "@"}{p.nickname}
+                    </span>
+                    <div className="flex gap-4">
+                      <span className="flex items-center gap-1">
+                        <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        {p.view_count || 0}
+                      </span>
+                      <span>♥ {p.like_count || 0}</span>
+                      <span className="flex items-center gap-1">
+                        <svg className="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                        </svg>
+                        {p.comment_count || 0}
+                      </span>
+                    </div>
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       )}
       <div className="mt-6 flex justify-end sm:mb-8">
@@ -190,14 +192,15 @@ export default function CommunityPage() {
           onClick={handleWriteClick}
           className="gradient-primary min-h-[44px] rounded-lg px-6 py-2 text-sm font-bold text-white shadow-lg transition-all hover:opacity-90 active:scale-95"
         >
-          글쓰기 (익명)
+          {isAdmin ? "공지 및 글쓰기" : "글쓰기 (익명)"}
         </button>
       </div>
+
       {/* 글쓰기 모달 */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
           <div className="w-full max-w-lg animate-in fade-in zoom-in rounded-2xl bg-white p-6 shadow-2xl duration-200">
-            <h2 className="mb-4 text-xl font-bold">새 글 작성</h2>
+            <h2 className="mb-4 text-xl font-bold">{isAdmin ? "새 게시물 작성 (관리자)" : "새 글 작성"}</h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="mb-1 block text-sm font-medium text-[var(--muted)]">카테고리</label>
@@ -206,6 +209,7 @@ export default function CommunityPage() {
                   onChange={(e) => setNewPost({ ...newPost, category: e.target.value })}
                   className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-4 py-2 focus:border-[var(--primary)] focus:outline-none"
                 >
+                  {isAdmin && <option value="notice">공지사항</option>}
                   <option value="question">질문</option>
                   <option value="info">정보 공유</option>
                   <option value="experience">경험담</option>

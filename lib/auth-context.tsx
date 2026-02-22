@@ -48,35 +48,72 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // 세션 유지 시 게스트 모드 해제
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) fetchProfile(session.user.id);
-      setIsReady(true);
-    });
+    const initAuth = async () => {
+      // 2초 타임아웃 추가
+      const timeout = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Auth Timeout")), 2000)
+      );
+
+      try {
+        const result = await Promise.race([
+          supabase.auth.getSession(),
+          timeout
+        ]) as any;
+
+        const { data: { session }, error: sessionError } = result;
+
+        if (sessionError) console.error("Supabase session error:", sessionError);
+
+        if (session?.user) {
+          setUser(session.user);
+          await fetchProfile(session.user.id);
+        }
+      } catch (err) {
+        console.warn("Auth initialization took too long or failed.");
+      } finally {
+        setIsReady(true);
+      }
+    };
+
+    initAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await fetchProfile(session.user.id);
-          setIsGuest(false); // 실제 로그인 시 게스트 모드 종료
-        } else {
-          setProfile(null);
+        try {
+          setUser(session?.user ?? null);
+          if (session?.user) {
+            await fetchProfile(session.user.id);
+            setIsGuest(false);
+          } else {
+            setProfile(null);
+          }
+        } catch (err) {
+          console.error("Auth state change error:", err);
+        } finally {
+          setIsReady(true);
         }
-        setIsReady(true);
       }
     );
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription?.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {
+      console.error("Sign out error:", e);
+    }
     setIsGuest(false);
+    setUser(null);
+    setProfile(null);
   };
 
   const enterAsGuest = () => {
     setIsGuest(true);
+    setIsReady(true);
   };
 
   const refreshProfile = async () => {
