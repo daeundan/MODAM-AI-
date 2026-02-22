@@ -32,7 +32,15 @@ export default function CommunityPage() {
   });
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
+  const [imageSize, setImageSize] = useState("medium"); // small, medium, large
+  const [imageAlign, setImageAlign] = useState("center"); // left, center, right
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // 편집기 내부 블록 관리 (시각적 드래그앤드롭용)
+  const [blocks, setBlocks] = useState<any[]>([
+    { id: 't1', type: 'text', value: '' }
+  ]);
+  const [activeImageId, setActiveImageId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchPosts();
@@ -46,13 +54,64 @@ export default function CommunityPage() {
       setImageFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImagePreview(reader.result as string);
+        const preview = reader.result as string;
+        setImagePreview(preview);
+
+        // 이미지가 이미 있으면 교체, 없으면 중간에 추가
+        const hasImage = blocks.find(b => b.type === 'image');
+        if (hasImage) {
+          setBlocks(blocks.map(b => b.type === 'image' ? { ...b, value: preview } : b));
+        } else {
+          // 텍스트 블록 중간에 삽입 (이미지 블록 추가)
+          const newBlocks = [...blocks];
+          // 첫 번째 텍스트 블록 다음에 삽입
+          newBlocks.splice(1, 0, { id: 'img-' + Date.now(), type: 'image', value: preview });
+          setBlocks(newBlocks);
+        }
       };
       reader.readAsDataURL(file);
     } else {
       setImageFile(null);
       setImagePreview("");
+      // 이미지 블록 제거
+      setBlocks(blocks.filter(b => b.type !== 'image'));
     }
+  };
+
+  // 블록 순서 변경
+  const moveImage = (direction: 'up' | 'down') => {
+    const imgIndex = blocks.findIndex(b => b.type === 'image');
+    if (imgIndex === -1) return;
+
+    const newBlocks = [...blocks];
+    if (direction === 'up' && imgIndex > 0) {
+      const temp = newBlocks[imgIndex];
+      newBlocks[imgIndex] = newBlocks[imgIndex - 1];
+      newBlocks[imgIndex - 1] = temp;
+    } else if (direction === 'down' && imgIndex < blocks.length - 1) {
+      const temp = newBlocks[imgIndex];
+      newBlocks[imgIndex] = newBlocks[imgIndex + 1];
+      newBlocks[imgIndex + 1] = temp;
+    }
+    setBlocks(newBlocks);
+  };
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    e.dataTransfer.setData('index', index.toString());
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault(); // Allow drop
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    const dragIndex = parseInt(e.dataTransfer.getData('index'));
+    if (dragIndex === dropIndex) return;
+
+    const newBlocks = [...blocks];
+    const [movedBlock] = newBlocks.splice(dragIndex, 1);
+    newBlocks.splice(dropIndex, 0, movedBlock);
+    setBlocks(newBlocks);
   };
 
   const fetchPosts = async () => {
@@ -94,7 +153,10 @@ export default function CommunityPage() {
     e.preventDefault();
     if (!user || isSubmitting) return;
 
-    if (!newPost.title.trim() || !newPost.content.trim()) {
+    // 블록들을 하나의 텍스트로 합침 (이미지는 [IMAGE] 태그로 변환)
+    const combinedContent = blocks.map(b => b.type === 'image' ? '[IMAGE]' : b.value).join('\n');
+
+    if (!newPost.title.trim() || !combinedContent.trim()) {
       alert("제목과 내용을 입력해주세요.");
       return;
     }
@@ -130,8 +192,10 @@ export default function CommunityPage() {
         nickname: nickname,
         category: newPost.category,
         title: newPost.title,
-        content: newPost.content,
-        image_url: uploadedImageUrl
+        content: combinedContent,
+        image_url: uploadedImageUrl,
+        image_size: imageSize,
+        image_align: imageAlign
       });
 
       if (error) {
@@ -142,6 +206,7 @@ export default function CommunityPage() {
         setNewPost({ title: "", category: "question", content: "" });
         setImageFile(null);
         setImagePreview("");
+        setBlocks([{ id: 't1', type: 'text', value: '' }]);
         fetchPosts();
       }
     } catch (err) {
@@ -216,11 +281,11 @@ export default function CommunityPage() {
                         {p.title}
                       </h2>
                       <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[var(--muted)]">
-                        {p.content}
+                        {p.content === "[IMAGE]" ? "(사진 게시물)" : p.content.replace("[IMAGE]", "")}
                       </p>
                     </div>
                     {p.image_url && (
-                      <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg">
+                      <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg shadow-inner bg-gray-50">
                         <img src={p.image_url} alt="Post image" className="h-full w-full object-cover" />
                       </div>
                     )}
@@ -267,25 +332,38 @@ export default function CommunityPage() {
         </button>
       </div>
 
-      {/* 글쓰기 모달 */}
+      {/* 스마트 블록 글쓰기 모달 */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-lg animate-in fade-in zoom-in rounded-2xl bg-white p-6 shadow-2xl duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm overflow-y-auto">
+          <div className="w-full max-w-2xl animate-in fade-in zoom-in rounded-2xl bg-white p-6 shadow-2xl duration-200 my-8">
             <h2 className="mb-4 text-xl font-bold">{isAdmin ? "새 게시물 작성 (관리자)" : "새 글 작성"}</h2>
+
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="mb-1 block text-sm font-medium text-[var(--muted)]">카테고리</label>
-                <select
-                  value={newPost.category}
-                  onChange={(e) => setNewPost({ ...newPost, category: e.target.value })}
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-4 py-2 focus:border-[var(--primary)] focus:outline-none"
-                >
-                  {isAdmin && <option value="notice">공지사항</option>}
-                  <option value="question">질문</option>
-                  <option value="info">정보 공유</option>
-                  <option value="experience">경험담</option>
-                </select>
+              <div className="flex gap-4">
+                <div className="flex-1">
+                  <label className="mb-1 block text-sm font-medium text-[var(--muted)]">카테고리</label>
+                  <select
+                    value={newPost.category}
+                    onChange={(e) => setNewPost({ ...newPost, category: e.target.value })}
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-4 py-2 focus:border-[var(--primary)] focus:outline-none"
+                  >
+                    {isAdmin && <option value="notice">공지사항</option>}
+                    <option value="question">질문</option>
+                    <option value="info">정보 공유</option>
+                    <option value="experience">경험담</option>
+                  </select>
+                </div>
+                <div className="flex-1">
+                  <label className="mb-1 block text-sm font-medium text-[var(--muted)]">사진 첨부</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="w-full text-xs text-gray-500 file:mr-4 file:rounded-full file:border-0 file:bg-[var(--primary-pale)] file:px-4 file:py-2 file:text-xs file:font-semibold file:text-[var(--primary)] hover:file:bg-[var(--primary)] hover:file:text-white"
+                  />
+                </div>
               </div>
+
               <div>
                 <label className="mb-1 block text-sm font-medium text-[var(--muted)]">제목</label>
                 <input
@@ -293,52 +371,114 @@ export default function CommunityPage() {
                   placeholder="제목을 입력하세요"
                   value={newPost.title}
                   onChange={(e) => setNewPost({ ...newPost, title: e.target.value })}
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-4 py-2 focus:border-[var(--primary)] focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="mb-1 block text-sm font-medium text-[var(--muted)]">내용</label>
-                <textarea
-                  rows={6}
-                  placeholder="내용을 입력하세요"
-                  value={newPost.content}
-                  onChange={(e) => setNewPost({ ...newPost, content: e.target.value })}
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-4 py-2 focus:border-[var(--primary)] focus:outline-none"
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-4 py-2 text-lg font-bold focus:border-[var(--primary)] focus:outline-none"
                 />
               </div>
 
-              {/* 이미지 업로드 추가 */}
-              <div>
-                <label className="mb-1 block text-sm font-medium text-[var(--muted)]">이미지 첨부 (선택)</label>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageChange}
-                  className="w-full text-xs text-gray-500 file:mr-4 file:rounded-full file:border-0 file:bg-[var(--primary-pale)] file:px-4 file:py-2 file:text-xs file:font-semibold file:text-[var(--primary)] hover:file:bg-[var(--primary)] hover:file:text-white"
-                />
+              {/* 시각적 블록 편집기 영역 */}
+              <div className="rounded-xl border border-[var(--border)] bg-gray-50/30 p-4 space-y-4 min-h-[400px]">
+                <label className="block text-xs font-bold text-[var(--muted)] uppercase tracking-wider">Editor Preview & Edit</label>
 
-                {/* 이미지 미리보기 추가 */}
-                {imagePreview && (
-                  <div className="mt-3 relative w-full h-40 rounded-lg overflow-hidden border border-[var(--border)]">
-                    <img src={imagePreview} alt="Preview" className="w-full h-full object-contain bg-gray-50" />
-                    <button
-                      type="button"
-                      onClick={() => { setImageFile(null); setImagePreview(""); }}
-                      className="absolute top-1 right-1 bg-black/50 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs"
+                {blocks.map((block, idx) => {
+                  if (block.type === 'image') {
+                    const sizeClasses: any = { small: 'w-1/3', medium: 'w-2/3', large: 'w-full' };
+                    const alignClasses: any = { left: 'mr-auto', center: 'mx-auto', right: 'ml-auto' };
+
+                    return (
+                      <div
+                        key={block.id}
+                        draggable
+                        onDragStart={(e) => handleDragStart(e, idx)}
+                        onDragOver={handleDragOver}
+                        onDrop={(e) => handleDrop(e, idx)}
+                        className="relative group py-2"
+                      >
+                        {/* 위치 이동 버튼 */}
+                        <div className="absolute -left-10 top-1/2 -translate-y-1/2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <button type="button" onClick={() => moveImage('up')} className="p-1 bg-white border rounded shadow-sm hover:bg-gray-50 flex items-center justify-center text-[10px]">▲</button>
+                          <button type="button" onClick={() => moveImage('down')} className="p-1 bg-white border rounded shadow-sm hover:bg-gray-50 flex items-center justify-center text-[10px]">▼</button>
+                          <div className="cursor-grab p-1 bg-gray-100 border rounded shadow-sm text-[8px] flex items-center justify-center">☰</div>
+                        </div>
+
+                        <div
+                          className={`relative cursor-pointer overflow-hidden rounded-lg border-2 transition-all ${activeImageId === block.id ? 'border-[var(--primary)] ring-4 ring-[var(--primary-pale)]' : 'border-transparent hover:border-gray-300'} ${sizeClasses[imageSize]} ${alignClasses[imageAlign]}`}
+                          onClick={() => setActiveImageId(activeImageId === block.id ? null : block.id)}
+                        >
+                          <img src={block.value} alt="Preview" className="w-full h-auto" />
+
+                          {/* 이미지 설정 오버레이 */}
+                          {activeImageId === block.id && (
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[2px] animate-in fade-in zoom-in duration-200">
+                              <div className="bg-white rounded-xl p-3 shadow-xl space-y-3" onClick={e => e.stopPropagation()}>
+                                <div className="space-y-1">
+                                  <p className="text-[10px] font-bold text-gray-400 text-center uppercase">Size</p>
+                                  <div className="flex gap-1 justify-center">
+                                    {['small', 'medium', 'large'].map(s => (
+                                      <button key={s} type="button" onClick={() => setImageSize(s)} className={`px-3 py-1 text-[10px] rounded-md border transition-all ${imageSize === s ? 'bg-[var(--primary)] text-white border-[var(--primary)] shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:border-[var(--primary)]'}`}>
+                                        {s === 'small' ? '작게' : s === 'medium' ? '중간' : '크게'}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                                <div className="space-y-1">
+                                  <p className="text-[10px] font-bold text-gray-400 text-center uppercase">Align</p>
+                                  <div className="flex gap-1 justify-center">
+                                    {['left', 'center', 'right'].map(a => (
+                                      <button key={a} type="button" onClick={() => setImageAlign(a)} className={`px-3 py-1 text-[10px] rounded-md border transition-all ${imageAlign === a ? 'bg-[var(--primary)] text-white border-[var(--primary)] shadow-sm' : 'bg-white text-gray-600 border-gray-200 hover:border-[var(--primary)]'}`}>
+                                        {a === 'left' ? '왼쪽' : a === 'center' ? '가운데' : '오른쪽'}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                                <button type="button" onClick={() => setActiveImageId(null)} className="w-full py-2 text-xs font-bold bg-[var(--primary)] text-white rounded-lg hover:opacity-90 shadow-md">설정 완료</button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div
+                      key={block.id}
+                      draggable
+                      onDragStart={(e) => handleDragStart(e, idx)}
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleDrop(e, idx)}
+                      className="group relative"
                     >
-                      ✕
-                    </button>
-                  </div>
+                      <div className="absolute -left-10 top-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab text-gray-300">☰</div>
+                      <textarea
+                        placeholder="여기에 내용을 입력하세요..."
+                        value={block.value}
+                        onChange={(e) => {
+                          const newBlocks = [...blocks];
+                          newBlocks[idx].value = e.target.value;
+                          setBlocks(newBlocks);
+                        }}
+                        className="w-full min-h-[100px] bg-transparent resize-none border-none focus:ring-0 text-base leading-relaxed placeholder:text-gray-300 py-2"
+                      />
+                    </div>
+                  );
+                })}
+
+                {/* 하단 텍스트 블록 자동 추가 (항상 마지막은 텍스트여야 함) */}
+                {blocks[blocks.length - 1]?.type === 'image' && (
+                  <button
+                    type="button"
+                    onClick={() => setBlocks([...blocks, { id: Date.now().toString(), type: 'text', value: '' }])}
+                    className="w-full py-4 text-xs text-gray-400 border border-dashed border-gray-200 rounded-lg hover:bg-gray-100"
+                  >
+                    + 여기에 텍스트 추가
+                  </button>
                 )}
               </div>
 
-              <div className="flex gap-3 pt-2">
+              <div className="flex gap-3 pt-4 border-t">
                 <button
                   type="button"
-                  onClick={() => {
-                    setIsModalOpen(false);
-                    setImageFile(null);
-                  }}
+                  onClick={() => setIsModalOpen(false)}
                   className="flex-1 rounded-lg border border-[var(--border)] py-3 font-medium transition-all hover:bg-gray-50"
                   disabled={isSubmitting}
                 >

@@ -28,6 +28,11 @@ export default function PostDetailPage() {
     const [isEditing, setIsEditing] = useState(false);
     const [editForm, setEditForm] = useState({ title: "", content: "", category: "question" });
     const [editImageFile, setEditImageFile] = useState<File | null>(null);
+    const [editImagePreview, setEditImagePreview] = useState<string>("");
+    const [editImageSize, setEditImageSize] = useState("medium");
+    const [editImageAlign, setEditImageAlign] = useState("center");
+    const [editBlocks, setEditBlocks] = useState<any[]>([]);
+    const [activeEditImageId, setActiveEditImageId] = useState<string | null>(null);
 
     const isAdmin = profile?.username === "modamadmin";
 
@@ -57,6 +62,27 @@ export default function PostDetailPage() {
         }
         setPost(postData);
         setEditForm({ title: postData.title, content: postData.content, category: postData.category });
+        setEditImageSize(postData.image_size || "medium");
+        setEditImageAlign(postData.image_align || "center");
+
+        // 블록 데이터 초기화
+        if (postData.content.includes("[IMAGE]")) {
+            const parts = postData.content.split("[IMAGE]");
+            setEditBlocks([
+                { id: 't1', type: 'text', value: parts[0] || "" },
+                { id: 'img', type: 'image', value: postData.image_url },
+                { id: 't2', type: 'text', value: parts[1] || "" }
+            ]);
+        } else {
+            setEditBlocks([{ id: 't1', type: 'text', value: postData.content }]);
+            if (postData.image_url) {
+                // 이미지는 있지만 태그는 없는 경우 (최상단 배치로 초기화)
+                setEditBlocks([
+                    { id: 'img', type: 'image', value: postData.image_url },
+                    { id: 't1', type: 'text', value: postData.content }
+                ]);
+            }
+        }
 
         // 댓글 가져오기
         const { data: commentData, error: commentError } = await (supabase
@@ -164,9 +190,73 @@ export default function PostDetailPage() {
         }
     };
 
+    const handleEditImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            setEditImageFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const preview = reader.result as string;
+                setEditImagePreview(preview);
+
+                // 이미지가 이미 있으면 교체, 없으면 중간에 추가
+                const hasImage = editBlocks.find(b => b.type === 'image');
+                if (hasImage) {
+                    setEditBlocks(editBlocks.map(b => b.type === 'image' ? { ...b, value: preview } : b));
+                } else {
+                    const newBlocks = [...editBlocks];
+                    newBlocks.splice(1, 0, { id: 'img-' + Date.now(), type: 'image', value: preview });
+                    setEditBlocks(newBlocks);
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const moveEditImage = (direction: 'up' | 'down') => {
+        const imgIndex = editBlocks.findIndex(b => b.type === 'image');
+        if (imgIndex === -1) return;
+
+        const newBlocks = [...editBlocks];
+        if (direction === 'up' && imgIndex > 0) {
+            const temp = newBlocks[imgIndex];
+            newBlocks[imgIndex] = newBlocks[imgIndex - 1];
+            newBlocks[imgIndex - 1] = temp;
+        } else if (direction === 'down' && imgIndex < editBlocks.length - 1) {
+            const temp = newBlocks[imgIndex];
+            newBlocks[imgIndex] = newBlocks[imgIndex + 1];
+            newBlocks[imgIndex + 1] = temp;
+        }
+        setEditBlocks(newBlocks);
+    };
+
+    const handleEditDragStart = (e: React.DragEvent, index: number) => {
+        e.dataTransfer.setData('index', index.toString());
+    };
+
+    const handleEditDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+    };
+
+    const handleEditDrop = (e: React.DragEvent, dropIndex: number) => {
+        const dragIndex = parseInt(e.dataTransfer.getData('index'));
+        if (dragIndex === dropIndex) return;
+
+        const newBlocks = [...editBlocks];
+        const [movedBlock] = newBlocks.splice(dragIndex, 1);
+        newBlocks.splice(dropIndex, 0, movedBlock);
+        setEditBlocks(newBlocks);
+    };
+
     const handleUpdatePost = async () => {
-        if (!editForm.title.trim() || !editForm.content.trim()) {
-            alert("제목과 내용을 입력해주세요.");
+        if (!editForm.title.trim()) {
+            alert("제목을 입력해주세요.");
+            return;
+        }
+
+        const combinedContent = editBlocks.map(b => b.type === 'image' ? '[IMAGE]' : b.value).join('\n');
+        if (!combinedContent.trim()) {
+            alert("내용을 입력해주세요.");
             return;
         }
 
@@ -192,9 +282,11 @@ export default function PostDetailPage() {
 
             const { error } = await supabase.from("community_posts").update({
                 title: editForm.title,
-                content: editForm.content,
+                content: combinedContent,
                 category: editForm.category,
-                image_url: finalImageUrl
+                image_url: finalImageUrl,
+                image_size: editImageSize,
+                image_align: editImageAlign
             }).eq("id", id);
 
             if (error) {
@@ -204,6 +296,7 @@ export default function PostDetailPage() {
                 alert("성공적으로 수정되었습니다! 🎉");
                 setIsEditing(false);
                 setEditImageFile(null);
+                setEditImagePreview("");
                 await fetchPostAndComments();
             }
         } catch (err) {
@@ -235,55 +328,116 @@ export default function PostDetailPage() {
         <div className="mx-auto max-w-4xl px-4 pt-20 pb-6 sm:pt-26 sm:pb-12">
             <div className={`rounded-2xl border p-6 shadow-sm sm:p-8 ${isPostAdmin ? "border-orange-200 bg-orange-50/20" : "border-[var(--border)] bg-[var(--card)]"}`}>
                 {isEditing ? (
-                    <div className="space-y-4">
-                        <div className="flex flex-col gap-1">
-                            <label className="text-xs font-bold text-gray-400">제목</label>
+                    <div className="flex flex-col gap-4 rounded-2xl border-2 border-[var(--primary)] bg-white p-6 shadow-xl animate-in fade-in slide-in-from-bottom-4 duration-200">
+                        <div className="flex items-center justify-between border-b pb-4">
+                            <h2 className="text-xl font-bold text-[var(--foreground)]">게시글 수정하기</h2>
+                            <span className="text-xs text-[var(--muted)]">이미지를 클릭하여 크기와 위치를 조절하세요.</span>
+                        </div>
+
+                        <div className="flex gap-4">
+                            <div className="flex-1">
+                                <label className="mb-1 block text-sm font-medium text-[var(--muted)]">카테고리</label>
+                                <select
+                                    value={editForm.category}
+                                    onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-4 py-2 focus:border-[var(--primary)] focus:outline-none"
+                                >
+                                    {isAdmin && <option value="notice">공지사항</option>}
+                                    <option value="question">질문</option>
+                                    <option value="info">정보 공유</option>
+                                    <option value="experience">경험담</option>
+                                </select>
+                            </div>
+                            <div className="flex-1">
+                                <label className="mb-1 block text-sm font-medium text-[var(--muted)]">사진 변경</label>
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={handleEditImageChange}
+                                    className="w-full text-xs text-gray-500 file:mr-4 file:rounded-full file:border-0 file:bg-[var(--primary-pale)] file:px-4 file:py-2 file:text-xs file:font-semibold file:text-[var(--primary)] hover:file:bg-[var(--primary)] hover:file:text-white"
+                                />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="mb-1 block text-sm font-medium text-[var(--muted)]">제목</label>
                             <input
                                 type="text"
                                 value={editForm.title}
                                 onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                                className="w-full rounded-lg border border-gray-300 p-2 text-xl font-bold focus:outline-[var(--primary)]"
-                            />
-                        </div>
-                        <div className="flex flex-col gap-1">
-                            <label className="text-xs font-bold text-gray-400">카테고리</label>
-                            <select
-                                value={editForm.category}
-                                onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-                                className="w-full rounded-lg border border-gray-300 p-2"
-                            >
-                                <option value="notice">공지사항</option>
-                                <option value="question">질문</option>
-                                <option value="info">정보 공유</option>
-                                <option value="experience">경험담</option>
-                            </select>
-                        </div>
-                        <div className="flex flex-col gap-1">
-                            <label className="text-xs font-bold text-gray-400">내용</label>
-                            <textarea
-                                rows={10}
-                                value={editForm.content}
-                                onChange={(e) => setEditForm({ ...editForm, content: e.target.value })}
-                                className="w-full rounded-lg border border-gray-300 p-2 focus:outline-[var(--primary)]"
+                                className="w-full rounded-lg border border-[var(--border)] bg-[var(--background)] px-4 py-2 text-lg font-bold focus:border-[var(--primary)] focus:outline-none"
                             />
                         </div>
 
-                        {/* 수정 모드 이미지 업로드 추가 */}
-                        <div className="flex flex-col gap-2 rounded-lg border border-dashed border-gray-300 p-4">
-                            <label className="text-sm font-bold">이미지 변경</label>
-                            {post.image_url && !editImageFile && (
-                                <p className="text-xs text-blue-500">현재 이미지가 등록되어 있습니다.</p>
-                            )}
-                            <input
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) => setEditImageFile(e.target.files?.[0] || null)}
-                                className="text-xs"
-                            />
+                        {/* 시각적 블록 편집기 영역 (수정 모드) */}
+                        <div className="rounded-xl border border-[var(--border)] bg-gray-50/30 p-4 space-y-4 min-h-[400px]">
+                            {editBlocks.map((block, idx) => {
+                                if (block.type === 'image') {
+                                    const sizeClasses: any = { small: 'w-1/3', medium: 'w-2/3', large: 'w-full' };
+                                    const alignClasses: any = { left: 'mr-auto', center: 'mx-auto', right: 'ml-auto' };
+
+                                    return (
+                                        <div key={block.id} className="relative group py-2">
+                                            <div className="absolute -left-10 top-1/2 -translate-y-1/2 flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button type="button" onClick={() => moveEditImage('up')} className="p-1 bg-white border rounded shadow-sm hover:bg-gray-50">▲</button>
+                                                <button type="button" onClick={() => moveEditImage('down')} className="p-1 bg-white border rounded shadow-sm hover:bg-gray-50">▼</button>
+                                            </div>
+
+                                            <div
+                                                className={`relative cursor-pointer overflow-hidden rounded-lg border-2 transition-all ${activeEditImageId === block.id ? 'border-[var(--primary)] ring-4 ring-[var(--primary-pale)]' : 'border-transparent hover:border-gray-300'} ${sizeClasses[editImageSize]} ${alignClasses[editImageAlign]}`}
+                                                onClick={() => setActiveEditImageId(activeEditImageId === block.id ? null : block.id)}
+                                            >
+                                                <img src={block.value} alt="Preview" className="w-full h-auto" />
+
+                                                {activeEditImageId === block.id && (
+                                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center backdrop-blur-[2px] animate-in fade-in zoom-in duration-200">
+                                                        <div className="bg-white rounded-xl p-3 shadow-xl space-y-3" onClick={e => e.stopPropagation()}>
+                                                            <div className="space-y-1">
+                                                                <p className="text-[10px] font-bold text-gray-400 text-center">크기 선택</p>
+                                                                <div className="flex gap-1">
+                                                                    {['small', 'medium', 'large'].map(s => (
+                                                                        <button key={s} type="button" onClick={() => setEditImageSize(s)} className={`px-3 py-1 text-[10px] rounded-md border ${editImageSize === s ? 'bg-[var(--primary)] text-white border-[var(--primary)]' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                                                                            {s === 'small' ? '작게' : s === 'medium' ? '중간' : '크게'}
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                            <div className="space-y-1">
+                                                                <p className="text-[10px] font-bold text-gray-400 text-center">정렬</p>
+                                                                <div className="flex gap-1">
+                                                                    {['left', 'center', 'right'].map(a => (
+                                                                        <button key={a} type="button" onClick={() => setEditImageAlign(a)} className={`px-3 py-1 text-[10px] rounded-md border ${editImageAlign === a ? 'bg-[var(--primary)] text-white border-[var(--primary)]' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                                                                            {a === 'left' ? '왼쪽' : a === 'center' ? '가운데' : '오른쪽'}
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                            <button type="button" onClick={() => setActiveEditImageId(null)} className="w-full py-1.5 text-xs font-bold bg-gray-100 rounded-lg hover:bg-gray-200">확인</button>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <textarea
+                                        key={block.id}
+                                        value={block.value}
+                                        onChange={(e) => {
+                                            const newBlocks = [...editBlocks];
+                                            newBlocks[idx].value = e.target.value;
+                                            setEditBlocks(newBlocks);
+                                        }}
+                                        className="w-full min-h-[100px] bg-transparent resize-none border-none focus:ring-0 text-base leading-relaxed placeholder:text-gray-300"
+                                    />
+                                );
+                            })}
                         </div>
 
                         <div className="flex justify-end gap-2 pt-4 border-t">
-                            <button onClick={() => { setIsEditing(false); setEditImageFile(null); }} className="rounded-lg bg-gray-200 px-6 py-2 font-bold transition-all hover:bg-gray-300">취소</button>
+                            <button onClick={() => { setIsEditing(false); setEditImageFile(null); setEditImagePreview(""); }} className="rounded-lg bg-gray-200 px-6 py-2 font-bold transition-all hover:bg-gray-300">취소</button>
                             <button onClick={handleUpdatePost} disabled={isSubmitting} className="gradient-primary rounded-lg px-6 py-2 font-bold text-white shadow-md transition-all hover:opacity-90 disabled:opacity-50">
                                 {isSubmitting ? "수정 중..." : "수정완료"}
                             </button>
@@ -330,20 +484,52 @@ export default function PostDetailPage() {
                             </button>
                         </div>
 
-                        {/* 첨부 이미지 표시 */}
-                        {post.image_url && (
-                            <div className="mt-8 overflow-hidden rounded-2xl border border-[var(--border)] bg-gray-50 shadow-sm">
-                                <img
-                                    src={post.image_url}
-                                    alt="게시글 첨부 이미지"
-                                    className="h-auto w-full object-contain max-h-[600px] mx-auto"
-                                    onError={(e) => (e.currentTarget.style.display = 'none')}
-                                />
-                            </div>
-                        )}
+                        {/* 내용 랜더링 (이미지 배치 로직 포함) */}
+                        <div className="mt-8 w-full leading-relaxed text-[var(--foreground)] text-base sm:text-lg">
+                            {(() => {
+                                const sizeClasses: Record<string, string> = {
+                                    small: "w-[180px] sm:w-[260px]",
+                                    medium: "w-[320px] sm:w-[480px]",
+                                    large: "w-full"
+                                };
 
-                        <div className="mt-8 w-full whitespace-pre-wrap leading-relaxed text-[var(--foreground)] text-base sm:text-lg">
-                            {post.content}
+                                const alignClasses: Record<string, string> = {
+                                    left: "float-left mr-5 mb-5",
+                                    center: "mx-auto block my-8 clear-both",
+                                    right: "float-right ml-5 mb-5"
+                                };
+
+                                const currentSize = sizeClasses[post.image_size || 'medium'] || sizeClasses.medium;
+                                const currentAlign = alignClasses[post.image_align || 'center'] || alignClasses.center;
+
+                                const imageElement = post.image_url ? (
+                                    <div className={`${currentSize} ${currentAlign} overflow-hidden rounded-xl border border-[var(--border)] bg-gray-50 shadow-sm`}>
+                                        <img
+                                            src={post.image_url}
+                                            alt="첨부 이미지"
+                                            className="h-auto w-full object-contain"
+                                        />
+                                    </div>
+                                ) : null;
+
+                                if (post.image_url && post.content.includes("[IMAGE]")) {
+                                    const parts = post.content.split("[IMAGE]");
+                                    return (
+                                        <div className="whitespace-pre-wrap">
+                                            {parts[0]}
+                                            {imageElement}
+                                            {parts[1]}
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <>
+                                        {imageElement}
+                                        <div className="whitespace-pre-wrap clear-both">{post.content}</div>
+                                    </>
+                                );
+                            })()}
                         </div>
                     </div>
                 )}
