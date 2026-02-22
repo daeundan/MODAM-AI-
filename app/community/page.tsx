@@ -15,7 +15,7 @@ const CATEGORIES = [
 
 export default function CommunityPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [category, setCategory] = useState("");
   const [posts, setPosts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,7 +75,7 @@ export default function CommunityPage() {
 
     const { error } = await supabase.from("community_posts").insert({
       user_id: user.id,
-      nickname: user.name,
+      nickname: profile?.nickname || "익명",
       category: newPost.category,
       title: newPost.title,
       content: newPost.content,

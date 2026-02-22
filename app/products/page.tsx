@@ -78,7 +78,7 @@ function ProductsContent() {
                 }`}
             >
               <div className="flex gap-4 sm:gap-6">
-                <div className="relative aspect-[3/4] w-24 shrink-0 overflow-hidden rounded-lg bg-[var(--muted)]/10 sm:w-32">
+                <div className="relative aspect-square w-24 shrink-0 overflow-hidden rounded-lg bg-[var(--muted)]/10 sm:w-32">
                   {p.imageUrl ? (
                     <img
                       src={p.imageUrl}

@@ -66,7 +66,7 @@ export default function RecommendationsPage() {
               href={`/products?highlight=${p.id}`}
               className="flex gap-4 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 hover:border-[var(--primary)]/30 transition-all active:scale-[0.98]"
             >
-              <div className="relative aspect-[3/4] w-20 shrink-0 overflow-hidden rounded-lg bg-[var(--muted)]/10">
+              <div className="relative aspect-square w-20 shrink-0 overflow-hidden rounded-lg bg-[var(--muted)]/10">
                 {p.imageUrl ? (
                   <img
                     src={p.imageUrl}

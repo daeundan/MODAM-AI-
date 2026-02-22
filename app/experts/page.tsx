@@ -19,7 +19,7 @@ export default function ExpertsPage() {
           >
             <div className="flex items-start gap-4 sm:gap-6">
               {/* Smaller Expert Image - Rounded Square */}
-              <div className="relative aspect-[3/4] w-20 shrink-0 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--muted)]/5 sm:w-28">
+              <div className="relative aspect-square w-20 shrink-0 overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--muted)]/5 sm:w-28">
                 {e.imageUrl ? (
                   <img
                     src={e.imageUrl}

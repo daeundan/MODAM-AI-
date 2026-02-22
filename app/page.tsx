@@ -5,7 +5,7 @@ import OnboardingWithLogin from "@/components/OnboardingWithLogin";
 import HomeDashboard from "@/components/HomeDashboard";
 
 export default function Home() {
-  const { user, isReady } = useAuth();
+  const { user, isReady, isGuest } = useAuth();
 
   if (!isReady) {
     return (
@@ -15,7 +15,7 @@ export default function Home() {
     );
   }
 
-  if (!user) {
+  if (!user && !isGuest) {
     return <OnboardingWithLogin />;
   }
 
